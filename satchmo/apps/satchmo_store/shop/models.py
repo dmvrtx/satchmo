@@ -17,6 +17,7 @@ from livesettings import ConfigurationSettings, config_value
 from payment.fields import PaymentChoiceCharField
 from product.models import Discount, Product, Price, get_product_quantity_adjustments
 from product.prices import PriceAdjustmentCalc, PriceAdjustment
+from satchmo_ext.discounts.signals import post_recalculate_total
 from satchmo_store.contact.models import Contact
 from satchmo_utils.fields import CurrencyField
 from satchmo_utils.numbers import trunc_decimal
@@ -969,6 +970,9 @@ class Order(models.Model):
             moneyfmt(self.tax))
 
         self.total = Decimal(item_sub_total + self.shipping_sub_total + self.tax)
+
+        # apply automatic tiered discounts
+        post_recalculate_total.send(sender=Order, instance=self)
 
         if save:
             self.save()

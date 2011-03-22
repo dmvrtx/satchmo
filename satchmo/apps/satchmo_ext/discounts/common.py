@@ -1,0 +1,8 @@
+DISCOUNT_AMOUNT = 'a'
+DISCOUNT_PERCENT = 'p'
+
+DISCOUNT_TYPES = (
+    (DISCOUNT_AMOUNT, 'Fixed amount'),
+    (DISCOUNT_PERCENT, 'Percent'),
+)
+

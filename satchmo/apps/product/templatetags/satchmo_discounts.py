@@ -2,6 +2,7 @@ from decimal import Decimal
 from django import template
 from livesettings import config_value
 from product.utils import calc_discounted_by_percentage, find_best_auto_discount
+from satchmo_ext.discounts.tiered.models import TieredDiscount
 from tax.templatetags import satchmo_tax
 
 register = template.Library()
@@ -48,21 +49,34 @@ register.filter('discount_cart_total', discount_cart_total)
 def untaxed_discount_cart_total(cart, discount):
     """Returns the discounted total for this cart"""
     total = Decimal('0.00')
+    discount_amount = Decimal('0.00')
 
     for item in cart:
         total += untaxed_discount_line_total(item, discount)
-    return total
+
+    # apply automatic tiered discounts
+    discount = TieredDiscount.objects.valid(total)
+    if discount:
+        discount_amount += discount.amount(total)
+
+    return total - discount_amount
 
 register.filter('untaxed_discount_cart_total', untaxed_discount_cart_total)
 
 def taxed_discount_cart_total(cart, discount):
     """Returns the discounted total for this cart with taxes included"""
     total = Decimal('0.00')
+    discount_amount = Decimal('0.00')
 
     for item in cart:
         total += taxed_discount_line_total(item, discount)
 
-    return total
+    # apply automatic tiered discounts
+    discount = tiereddiscount.objects.valid(total)
+    if discount:
+        discount_amount += discount.amount(total)
+
+    return total - discount_amount
 
 register.filter('taxed_discount_cart_total', taxed_discount_cart_total)
 
