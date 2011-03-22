@@ -18,7 +18,7 @@ msgstr ""
 
 #: .\admin.py:23
 msgid "Store Contact"
-msgstr "Контакты магазина"
+msgstr "Адресная книга"
 
 #: .\admin.py:27 .\models.py:95
 msgid "Shipping Countries"
@@ -183,7 +183,7 @@ msgstr "Страна"
 
 #: .\models.py:84
 msgid "Phone Number"
-msgstr "Телефонный номер"
+msgstr "Телефон"
 
 #: .\models.py:86
 msgid "Only sell to in-country customers?"
@@ -225,11 +225,11 @@ msgstr "Корзина"
 #: .\models.py:444 .\models.py:1064
 #, fuzzy
 msgid "Product"
-msgstr "Подробности о продукции"
+msgstr "Товар"
 
 #: .\models.py:445 .\models.py:1065 .\templates\shop\cart.html.py:25
 msgid "Quantity"
-msgstr "Платежный адрес"
+msgstr "Количество"
 
 #: .\models.py:526
 msgid "Cart Item"
@@ -345,7 +345,7 @@ msgstr "Код купона"
 
 #: .\models.py:630
 msgid "Discount amount"
-msgstr "Скидка"
+msgstr "Сумма скидки"
 
 #: .\models.py:632
 msgid "Order method"
@@ -434,7 +434,7 @@ msgstr "Дата завершения подписки."
 
 #: .\models.py:1075
 msgid "Completed"
-msgstr "Окончен"
+msgstr "Выполнен"
 
 #: .\models.py:1076
 msgid "Line item discount"
@@ -462,15 +462,15 @@ msgstr "Значение"
 
 #: .\models.py:1153
 msgid "Price Change"
-msgstr "Изменение цены для наименования"
+msgstr "Изменение цены"
 
 #: .\models.py:1161
 msgid "Order Item Detail"
-msgstr "Подробности о позиции заказа"
+msgstr "Подробности о позиции"
 
 #: .\models.py:1162
 msgid "Order Item Details"
-msgstr "Подробности о позиции заказа"
+msgstr "Подробности о позиции"
 
 #: .\models.py:1166
 msgid "Downloadable product"
@@ -1011,27 +1011,22 @@ msgid "View all Orders"
 msgstr "Показать все заказы"
 
 #: .\templates\shop\email\_order_detail_table.html.py:66
-#, fuzzy
 msgid "Discount:"
 msgstr "Скидка:"
 
 #: .\templates\shop\email\_order_detail_table.html.py:75
-#, fuzzy
 msgid "Shipping:"
 msgstr "Доставка:"
 
 #: .\templates\shop\email\_order_detail_table.html.py:84
-#, fuzzy
 msgid "Tax:"
 msgstr "Налог:"
 
 #: .\templates\shop\email\_order_detail_table.html.py:92
-#, fuzzy
 msgid "Total:"
 msgstr "Итого:"
 
 #: .\templates\shop\email\_order_detail_table.html.py:98
-#, fuzzy
 msgid "Payment: "
 msgstr "Платеж: "
 
@@ -1095,7 +1090,6 @@ msgid "Please enter a smaller number."
 msgstr "Пожалуйста, введите меньшее число."
 
 #: .\views\cart.py:167
-#, fuzzy
 msgid "Invalid quantity."
 msgstr "Неправильное количество."
 
