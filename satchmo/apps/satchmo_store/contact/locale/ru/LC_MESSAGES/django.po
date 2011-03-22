@@ -325,7 +325,7 @@ msgstr "Дата создания"
 
 #: .\supplier\models.py:35
 msgid "Subtotal"
-msgstr "Подытог"
+msgstr "Подитог"
 
 #: .\supplier\models.py:36
 msgid "Shipping"

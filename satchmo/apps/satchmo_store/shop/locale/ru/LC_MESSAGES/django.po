@@ -325,7 +325,7 @@ msgstr "Примечание"
 
 #: .\models.py:623 .\templates\shop\_order_details.html.py:50
 msgid "Subtotal"
-msgstr "Подытог"
+msgstr "Подитог"
 
 #: .\models.py:625 .\templates\shop\_order_details.html.py:49
 #: .\templates\shop\_order_details.html.py:71
