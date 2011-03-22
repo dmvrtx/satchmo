@@ -322,7 +322,7 @@ class ProductVariation(models.Model):
 
     def _optionkey(self):
         #todo: verify ordering
-        optkeys = [str(x) for x in self.options.values_list('value', flat=True).order_by('option_group__id')]
+        optkeys = [str(x.encode('utf-8')) if isinstance(x, unicode) else str(x) for x in self.options.values_list('value', flat=True).order_by('option_group__id')]
         return "::".join(optkeys)
     optionkey = property(fget=_optionkey)
 

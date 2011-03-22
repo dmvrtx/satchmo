@@ -1545,6 +1545,8 @@ class TaxClass(models.Model):
         verbose_name_plural = _("Tax Classes")
 
 def make_option_unique_id(groupid, value):
+    if isinstance(value, unicode):
+        value = value.encode('utf-8')
     return '%s-%s' % (str(groupid), str(value),)
 
 def round_cents(work):
