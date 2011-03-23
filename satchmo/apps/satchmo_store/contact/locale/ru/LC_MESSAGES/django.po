@@ -155,7 +155,7 @@ msgstr "Неправильный штат или регион."
 
 #: .\forms.py:158
 msgid "That email address is already in use."
-msgstr "Адресс электронной почты уже занят."
+msgstr "Адрес электронной почты уже занят."
 
 #: .\forms.py:232
 msgid "Shipping and Billing countries must match"
@@ -497,7 +497,7 @@ msgstr "Основная информация"
 #: .\templates\contact\update_form.html.py:26
 #: .\templates\registration\login.html.py:17
 msgid "Email address"
-msgstr "Адресс электронной почты"
+msgstr "Адрес электронной почты"
 
 #: .\templates\contact\update_form.html.py:39
 msgid "Birthday"
@@ -688,7 +688,7 @@ msgstr "Забыли свой пароль? Введите ваш адрес э�
 
 #: .\templates\registration\password_reset_form.html.py:19
 msgid "E-mail address"
-msgstr "Адресс электронной почты"
+msgstr "Адрес электронной почты"
 
 #: .\templates\registration\password_reset_form.html.py:20
 msgid "Be sure to enter the same e-mail address you used to register."
