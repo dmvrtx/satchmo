@@ -56,19 +56,15 @@ msgstr ""
 
 #: .\config.py:40
 msgid "Email owner?"
-msgstr "Написать заказчику?"
+msgstr "Оповещать о заказах?"
 
 #: .\config.py:41
-#, fuzzy
 msgid "True if you want to email the owner on order"
-msgstr ""
-"Установите флажок, если хотите отправлять электронные письма покупателям при "
-"заказе"
+msgstr "Установите, если хотите получать оповещения о заказах"
 
 #: .\config.py:48
-#, fuzzy
 msgid "Extra order emails?"
-msgstr "Дополнительные электронные письма при заказе"
+msgstr "Адреса для оповещений"
 
 #: .\config.py:50
 msgid ""
@@ -90,11 +86,10 @@ msgid ""
 "only supported for payment modules that can do Authorizations.  It will be "
 "silently ignored for any other processors."
 msgstr ""
-"Сразу проверять карту при вводе данных. Это приводит к начислению "
-"дополнительного платежа и позволяет отобразить ошибки на странице ввода "
-"данных, а не на странице подтверждения заказа. Заметьте, что эта функция "
-"поддерживается только модулями с авторизацией и будет игнорироваться другими "
-"модулями."
+"По возможности проверять карту на странице ввода данных. Происходит "
+"запрос списания 1-го цента и немедленный возврат, что позволяет сообщать об ошибках "
+"на странице ввода данных, а не при подтверждении. Поддерживается только модулями "
+"с авторизацией."
 
 #: .\config.py:64
 msgid "Country match required?"
@@ -116,9 +111,8 @@ msgid "The minimum cart total before checkout is allowed."
 msgstr "Минимальная сумма покупок, при которой разрешено оформление заказа."
 
 #: .\config.py:76
-#, fuzzy
 msgid "Save Credit Card Numbers"
-msgstr "Сохранять номера кредиток"
+msgstr "Сохранять номера банковских карт"
 
 #: .\config.py:77
 msgid ""
@@ -132,7 +126,7 @@ msgstr ""
 
 #: .\config.py:82
 msgid "Number of years to display for CC expiration"
-msgstr "Количество строк \"Годен до\""
+msgstr "Сколько лет отображать в сроке действия карт"
 
 #: .\config.py:83
 msgid ""
@@ -143,7 +137,6 @@ msgstr ""
 "лет годности кредитной карты."
 
 #: .\config.py:88
-#, fuzzy
 msgid "Use discounts"
 msgstr "Использовать скидки"
 
