@@ -9,6 +9,5 @@ Satchmo (by goodguy)
 
 - Основан на ветке 0.9.1
 - Внедрён патч TieredDiscount_
-- Улучшена поддержка не-ASCII локалей (например в ключах продуктов)
 
 .. _TieredDiscount: https://bitbucket.org/codekoala/satchmo-discounts/src/cda2ebe3b401/automatic_discounts
