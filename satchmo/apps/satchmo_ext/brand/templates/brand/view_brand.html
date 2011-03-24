@@ -23,6 +23,7 @@
 	    {% if translated.picture %}
         {% thumbnail translated.picture 85x85 as image %}
         <a href="{{ brand.get_absolute_url }}"><img src="{{ image }}" width="{{ image.width }}" height="{{ image.height }}" alt="{{ translated.name }}" /></a>
+        {% endthumbnail %}
 	    {% endif %}
 		{% if translated.description %}
 		<div class="description">
@@ -39,10 +40,11 @@
 		<div class="brandproducts">
 		{% for product in products %} 
 			<div class="productImage{% if forloop.first %} first{% endif %}">	
-            {% thumbnail product.main_image.picture 85x85 as image %}
-            <a href="{{ product.get_absolute_url }}"><img src="{{ image }}" width="{{ image.width }}" height="{{ image.height }}" /></a>
+            {% thumbnail product.main_image.picture "85x85" as image %}
+            <a href="{{ product.get_absolute_url }}"><img src="{{ image.url }}" width="{{ image.width }}" height="{{ image.height }}" /></a>
 				<br/>
-		        <a href="{{ product.get_absolute_url }}">{{ product.translated_name }}</a>
+                <a href="{{ product.get_absolute_url }}">{{ product.translated_name }}</a>
+                {% endthumbnail %}
 	         </div>
 	    {% endfor %}
 		</div>

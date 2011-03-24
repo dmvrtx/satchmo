@@ -8,6 +8,7 @@
     {% thumbnail item.main_image.picture 85x85 as image %}
     <img src="{{ image }}" width="{{ image.width }}" height="{{ image.height }}" alt="{{ item.translated_name }}" />
     <span style="display:block">{{ item.translated_name }}</span>
+    {% endthumbnail %}
 </a>
 {% endfor %}
 </div>
