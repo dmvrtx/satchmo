@@ -131,8 +131,9 @@ class Contact(models.Model):
     with.
     """
     title = models.CharField(_("Title"), max_length=30, blank=True, null=True)
-    first_name = models.CharField(_("First name"), max_length=30, )
-    last_name = models.CharField(_("Last name"), max_length=30, )
+    first_name = models.CharField(_("First name"), max_length=60, )
+    middle_name = models.CharField(_("Middle name"), max_length=60, blank=True, null=True)
+    last_name = models.CharField(_("Last name"), max_length=60, )
     user = models.ForeignKey(User, blank=True, null=True, unique=True)
     role = models.ForeignKey(ContactRole, verbose_name=_("Role"), null=True)
     organization = models.ForeignKey(Organization, verbose_name=_("Organization"), blank=True, null=True)
@@ -145,6 +146,8 @@ class Contact(models.Model):
 
     def _get_full_name(self):
         """Return the person's full name."""
+        if self.middle_name:
+            return u'%s %s %s' % (self.first_name, self.middle_name, self.last_name)
         return u'%s %s' % (self.first_name, self.last_name)
     full_name = property(_get_full_name)
 
