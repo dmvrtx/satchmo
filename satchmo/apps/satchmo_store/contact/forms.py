@@ -35,8 +35,9 @@ class ProxyContactForm(forms.Form):
 class ContactInfoForm(ProxyContactForm):
     email = forms.EmailField(max_length=75, label=_('Email'), required=False)
     title = forms.CharField(max_length=30, label=_('Title'), required=False)
-    first_name = forms.CharField(max_length=30, label=_('First Name'), required=False)
-    last_name = forms.CharField(max_length=30, label=_('Last Name'), required=False)
+    first_name = forms.CharField(max_length=60, label=_('First Name'), required=False)
+    middle_name = forms.CharField(max_length=60, label=_('Middle Name'), required=False)
+    last_name = forms.CharField(max_length=60, label=_('Last Name'), required=False)
     phone = forms.CharField(max_length=30, label=_('Phone'), required=False)
     addressee = forms.CharField(max_length=61, label=_('Addressee'), required=False)
     organization = forms.CharField(max_length=50, label=_('Organization'), required=False)
