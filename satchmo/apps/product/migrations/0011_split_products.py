@@ -1,12 +1,6 @@
 # encoding: utf-8
+from south.logger import get_logger
 from south.v2 import SchemaMigration
-
-depends_on=(
-    ('configurable', '0001_split'),
-    ('custom', '0001_split'),
-    ('downloadable', '0001_split'),
-    ('subscription', '0001_split')
-    )
 
 class Migration(SchemaMigration):
 
@@ -14,7 +8,10 @@ class Migration(SchemaMigration):
         pass
 
     def backwards(self, orm):
-        pass
+        get_logger().warning(
+            "Unable to effect a migration to 'zero' on the product modules;" \
+            "please do so manually."
+        )
 
     models = {
         'product.attributeoption': {

@@ -352,7 +352,7 @@ msgid "Min Price"
 msgstr "최소 가격"
 
 #: modules/tiered/models.py:214
-msgid "The minumum price for this tier to apply"
+msgid "The minimum price for this tier to apply"
 msgstr "이 묶음 배송을 적용하기 위한 최소 가격"
 
 #: modules/tiered/models.py:217 modules/tieredquantity/models.py:213
@@ -455,7 +455,7 @@ msgid "min weight"
 msgstr ""
 
 #: modules/tieredweight/models.py:264
-msgid "handling ajustment"
+msgid "handling adjustment"
 msgstr ""
 
 #: modules/tieredweight/models.py:266

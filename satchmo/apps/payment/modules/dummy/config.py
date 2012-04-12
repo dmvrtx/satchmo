@@ -31,6 +31,7 @@ config_register_list(
         'LABEL',
         description=_('English name for this group on the checkout screens'),
         default = 'Payment test module',
+        dummy = _('Payment test module'), # Force this to appear on po-files
         help_text = _('This will be passed to the translation utility')),
 
     StringValue(PAYMENT_GROUP,
@@ -52,7 +53,7 @@ config_register_list(
         'CAPTURE',
         description=_('Capture Payment immediately?'),
         default=True,
-        help_text=_('IMPORTANT: If false, a capture attempt will be made when the order is marked as shipped."')),
+        help_text=_('IMPORTANT: If false, a capture attempt will be made when the order is marked as shipped.')),
 
     BooleanValue(PAYMENT_GROUP,
         'AUTH_EARLY',

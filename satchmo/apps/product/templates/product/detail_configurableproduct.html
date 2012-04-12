@@ -6,6 +6,7 @@
 {% load satchmo_currency satchmo_category%}
 {% load satchmo_discounts satchmo_tax %}
 {% load app_plugins %}
+{% load satchmo_thumbnail %}
 
 {% block extra-head %}
 
@@ -24,6 +25,10 @@ $(function() {
     satchmo.update_price();
     $('.priced').change(function() { satchmo.update_price() });
 });
+
+// generate thumbnails for all alternate images
+satchmo.thumbnails = new Array();
+{{ details|js_thumbnail_array:"width=280,height=280" }}
 </script>
 {% endblock %}
 
@@ -35,11 +40,14 @@ $(function() {
 	<span id="price">{{ product|discount_price:sale|currency }}</span>
 	{% endspaceless %}</h3>
 
+<span id="product_images">
 {% for pic in product.productimage_set.all %}
     {% thumbnail pic.picture "280x280" as image %}
     <img src="{{ image.url }}" width="{{ image.width }}" height="{{ image.height }}" />
     {% endthumbnail %}
 {% endfor %}
+</span>
+
 
 {% with product.translated_attributes as atts %}{% if atts %}
 <p class="productattributes">
@@ -50,7 +58,7 @@ $(function() {
 {% endif %}{% endwith %}
 
 {% if error_message %}<p><strong>{{ error_message }}</strong></p>{% endif %}
-<form id="options" action="{% url satchmo_smart_add %}" method="post">
+<form id="options" action="{% url satchmo_smart_add %}" method="post">{% csrf_token %}
 {% if options %}
 <p>{% trans "Please choose your options" %}:</p>
 {% endif %}
@@ -67,7 +75,7 @@ $(function() {
     {% endfor %}
       </select>
 {% endfor %}
-{% trans "Quantity" %} <input type="text", size="2", name="quantity" id="quantity" value="1" class="priced" />
+{% trans "Quantity" %} <input type="text" size="2" name="quantity" id="quantity" value="1" class="priced" />
 <input type="hidden" name="productname" id="productname" value="{{product.slug}}" />
 <input id="addcart" type="submit" name="addcart" value="{% trans "Add to cart" %}" />
 {% plugin_point "product_add_buttons" %}

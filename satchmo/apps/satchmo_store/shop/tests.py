@@ -1,4 +1,5 @@
 from decimal import Decimal
+from django.conf import settings
 from django.contrib.auth.models import User
 from django.contrib.sites.models import Site
 from django.core import mail
@@ -6,13 +7,15 @@ from django.core.urlresolvers import reverse as url
 from django.test import TestCase
 from django.test.client import Client
 from django.utils.encoding import smart_str
+from django.utils.translation import get_language
+from django.core.cache import cache
 from keyedcache import cache_delete
 from l10n.models import Country
 from l10n.utils import moneyfmt
 from livesettings import config_get
 from payment import active_gateways
 from product.models import Product
-from product.utils import rebuild_pricing
+from product.utils import rebuild_pricing, find_auto_discounts
 from satchmo_store.contact import CUSTOMER_ID
 from satchmo_store.contact.models import *
 from satchmo_store.shop import get_satchmo_setting, signals
@@ -42,7 +45,7 @@ def get_step1_post_data(US):
         'ship_city': 'Springfield',
         'ship_state': 'MO',
         'ship_postal_code': '81123',
-        'paymentmethod': 'PAYMENT_DUMMY',
+        'paymentmethod': 'DUMMY',
         'copy_address' : True
         }
 
@@ -66,9 +69,15 @@ class ShopTest(TestCase):
         self.client = Client()
         self.US = Country.objects.get(iso2_code__iexact = "US")
         rebuild_pricing()
+        current_site = Site.objects.get_current()
+        cache_key = "cat-%s-%s" % (current_site.id, get_language())
+        cache.delete(cache_key)
+        self.old_language_code = settings.LANGUAGE_CODE
+        settings.LANGUAGE_CODE = 'en-us'
 
     def tearDown(self):
         cache_delete()
+        settings.LANGUAGE_CODE = self.old_language_code
 
     def test_main_page(self):
         """
@@ -161,22 +170,20 @@ class ShopTest(TestCase):
     def test_cart_adding_errors_invalid_qty(self):
         # You should not be able to add a product with a non-valid decimal quantity.
         response = self.client.post(prefix + '/cart/add/',
-            {'productname': 'neat-book', '3': 'soft', 'quantity': '1.5a'})
+            {'productname': 'neat-book', '3': 'soft', 'quantity': '1.5a'}, follow=True)
 
-        err = self.client.session.get('ERRORS')
         url = prefix + '/product/neat-book-soft/'
         self.assertRedirects(response, url, status_code=302, target_status_code=200)
-        self.assertEqual(err, "Invalid quantity.")
+        self.assertContains(response, "Invalid quantity.", count=1)
 
     def test_cart_adding_errors_less_zero(self):
         # You should not be able to add a product with a quantity less than zero.
         response = self.client.post(prefix + '/cart/add/',
-            {'productname': 'neat-book', '3': 'soft', 'quantity': '0'})
+            {'productname': 'neat-book', '3': 'soft', 'quantity': '0'}, follow=True)
 
-        err = self.client.session.get('ERRORS')
         url = prefix + '/product/neat-book-soft/'
         self.assertRedirects(response, url, status_code=302, target_status_code=200)
-        self.assertEqual(err, "Please enter a positive number.")
+        self.assertContains(response, "Please enter a positive number.", count=1)
 
     def test_cart_adding_errors_out_of_stock(self):
         # If no_stock_checkout is False, you should not be able to order a
@@ -184,12 +191,11 @@ class ShopTest(TestCase):
         setting = config_get('PRODUCT','NO_STOCK_CHECKOUT')
         setting.update(False)
         response = self.client.post(prefix + '/cart/add/',
-            {'productname': 'neat-book', '3': 'soft', 'quantity': '1'})
+            {'productname': 'neat-book', '3': 'soft', 'quantity': '1'}, follow=True)
 
-        err = self.client.session.get('ERRORS')
         url = prefix + '/product/neat-book-soft/'
         self.assertRedirects(response, url, status_code=302, target_status_code=200)
-        self.assertEqual(err, "'A really neat book (Soft cover)' is out of stock.")
+        self.assertContains(response, "A really neat book (Soft cover)&#39; is out of stock.", count=1)
 
     def test_product(self):
         # Test for an easily missed reversion. When you lookup a productvariation product then
@@ -241,7 +247,9 @@ class ShopTest(TestCase):
         setting.update(True)
 
         self.test_cart_adding(retest=True)
-        response = self.client.post(prefix + '/cart/remove/', {'cartitem': '1'})
+        response = self.client.get(prefix+'/cart/')
+        cartitem_id = response.context[0]['cart'].cartitem_set.all()[0].id
+        response = self.client.post(prefix + '/cart/remove/', {'cartitem': str(cartitem_id)})
         #self.assertRedirects(response, prefix + '/cart/',
         #    status_code=302, target_status_code=200)
         response = self.client.get(prefix+'/cart/')
@@ -267,7 +275,7 @@ class ShopTest(TestCase):
             'credit_type': 'Visa',
             'credit_number': '4485079141095836',
             'month_expires': '1',
-            'year_expires': '2014',
+            'year_expires': '2015',
             'ccv': '552',
             'shipping': 'FlatRate'}
         response = self.client.post(url('DUMMY_satchmo_checkout-step2'), data)
@@ -296,12 +304,90 @@ class ShopTest(TestCase):
         self.client.login(username='fredsu', password='passwd')
 
         # Test pdf generation
-        response = self.client.get('/admin/print/invoice/1/')
+        order_id = Order.objects.all()[0].id
+        response = self.client.get('/admin/print/invoice/%d/' % order_id)
         self.assertContains(response, 'reportlab', status_code=200)
-        response = self.client.get('/admin/print/packingslip/1/')
+        response = self.client.get('/admin/print/packingslip/%d/' % order_id)
         self.assertContains(response, 'reportlab', status_code=200)
-        response = self.client.get('/admin/print/shippinglabel/1/')
+        response = self.client.get('/admin/print/shippinglabel/%d/' % order_id)
         self.assertContains(response, 'reportlab', status_code=200)
+
+    def test_two_checkouts_dont_duplicate_contact(self):
+        """
+        Two checkouts with the same email address do not duplicate contacts
+        Ticket #1264 [Invalid]
+        """
+
+        tax = config_get('TAX','MODULE')
+        tax.update('tax.modules.percent')
+        pcnt = config_get('TAX', 'PERCENT')
+        pcnt.update('10')
+        shp = config_get('TAX', 'TAX_SHIPPING')
+        shp.update(False)
+
+        # First checkout
+        self.test_cart_adding()
+        response = self.client.post(url('satchmo_checkout-step1'), get_step1_post_data(self.US))
+        self.assertRedirects(response, url('DUMMY_satchmo_checkout-step2'),
+            status_code=302, target_status_code=200)
+        data = {
+            'credit_type': 'Visa',
+            'credit_number': '4485079141095836',
+            'month_expires': '1',
+            'year_expires': '2015',
+            'ccv': '552',
+            'shipping': 'FlatRate'}
+        response = self.client.post(url('DUMMY_satchmo_checkout-step2'), data)
+        self.assertRedirects(response, url('DUMMY_satchmo_checkout-step3'),
+            status_code=302, target_status_code=200)
+        response = self.client.get(url('DUMMY_satchmo_checkout-step3'))
+        amount = smart_str('Shipping + ' + moneyfmt(Decimal('4.00')))
+        self.assertContains(response, amount, count=1, status_code=200)
+
+        amount = smart_str('Tax + ' + moneyfmt(Decimal('4.60')))
+        self.assertContains(response, amount, count=1, status_code=200)
+
+        amount = smart_str('Total = ' + moneyfmt(Decimal('54.60')))
+        self.assertContains(response, amount, count=1, status_code=200)
+
+        response = self.client.post(url('DUMMY_satchmo_checkout-step3'), {'process' : 'True'})
+        self.assertRedirects(response, url('DUMMY_satchmo_checkout-success'),
+            status_code=302, target_status_code=200)
+
+        # Second checkout
+        self.test_cart_adding()
+        response = self.client.post(url('satchmo_checkout-step1'), get_step1_post_data(self.US))
+        self.assertRedirects(response, url('DUMMY_satchmo_checkout-step2'),
+            status_code=302, target_status_code=200)
+        data = {
+            'credit_type': 'Visa',
+            'credit_number': '4485079141095836',
+            'month_expires': '1',
+            'year_expires': '2015',
+            'ccv': '552',
+            'shipping': 'FlatRate'}
+        response = self.client.post(url('DUMMY_satchmo_checkout-step2'), data)
+        self.assertRedirects(response, url('DUMMY_satchmo_checkout-step3'),
+            status_code=302, target_status_code=200)
+        response = self.client.get(url('DUMMY_satchmo_checkout-step3'))
+        amount = smart_str('Shipping + ' + moneyfmt(Decimal('4.00')))
+        self.assertContains(response, amount, count=1, status_code=200)
+
+        amount = smart_str('Tax + ' + moneyfmt(Decimal('4.60')))
+        self.assertContains(response, amount, count=1, status_code=200)
+
+        amount = smart_str('Total = ' + moneyfmt(Decimal('54.60')))
+        self.assertContains(response, amount, count=1, status_code=200)
+
+        response = self.client.post(url('DUMMY_satchmo_checkout-step3'), {'process' : 'True'})
+        self.assertRedirects(response, url('DUMMY_satchmo_checkout-success'),
+            status_code=302, target_status_code=200)
+
+        self.assertEqual(len(mail.outbox), 2)
+
+        qs = Contact.objects.filter(email="sometester@example.com")
+        # We expects that the contact do not duplicate
+        self.assertEqual(len(qs), 1)
 
     def test_contact_login(self):
         """Check that when a user logs in, the user's existing Contact will be
@@ -835,6 +921,17 @@ class DiscountAmountTest(TestCase):
         self.assertEqual(shipcost, Decimal('6.00'))
         self.assertEqual(shiptotal, Decimal('6.00'))
         self.assertEqual(discount, Decimal('0.60'))
+
+    def testRetrieveAutoDiscounts(self):
+        products = [i.product for i in self.order.orderitem_set.all()]
+        discounts = find_auto_discounts(products)
+
+        self.assertEqual(
+            set([d.code for d in discounts]),
+            set(['test20-auto', 'test20-auto-all']))
+        self.assertEqual(
+            [d.percentage for d in discounts],
+            [Decimal('20.0'), Decimal('20.0')])
 
     def make_order_payment(order, paytype=None, amount=None):
         if not paytype:

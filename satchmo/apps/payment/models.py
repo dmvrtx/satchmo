@@ -10,9 +10,9 @@ from django.conf import settings
 from django.db import models
 from django.utils.translation import ugettext_lazy as _
 from livesettings import config_value, config_choice_values, SettingNotSet
-from payment.fields import PaymentChoiceCharField, CreditChoiceCharField
+from satchmo_utils.iterchoices import iterchoices_db
+import payment.config
 from satchmo_store.contact.models import Contact
-from satchmo_store.shop.models import OrderPayment
 import base64
 import config
 import keyedcache
@@ -29,7 +29,7 @@ class PaymentOption(models.Model):
     description = models.CharField(_("Description"), max_length=20)
     active = models.BooleanField(_("Active"), 
         help_text=_("Should this be displayed as an option for the user?"))
-    optionName = PaymentChoiceCharField(_("Option Name"), max_length=20, 
+    optionName = models.CharField(_("Option Name"), max_length=20, choices=iterchoices_db(payment.config.labelled_gateway_choices),
         unique=True, 
         help_text=_("The class name as defined in payment.py"))
     sortOrder = models.IntegerField(_("Sort Order"))
@@ -43,9 +43,9 @@ class CreditCardDetail(models.Model):
     Stores an encrypted CC number, its information, and its
     displayable number.
     """
-    orderpayment = models.ForeignKey(OrderPayment, unique=True, 
+    orderpayment = models.ForeignKey('shop.OrderPayment', unique=True, 
         related_name="creditcards")
-    credit_type = CreditChoiceCharField(_("Credit Card Type"), max_length=16)
+    credit_type = models.CharField(_("Credit Card Type"), max_length=16, choices=iterchoices_db(payment.config.credit_choices))
     display_cc = models.CharField(_("CC Number (Last 4 digits)"),
         max_length=4, )
     encrypted_cc = models.CharField(_("Encrypted Credit Card"),
@@ -109,14 +109,16 @@ class CreditCardDetail(models.Model):
 
 def _decrypt_code(code):
     """Decrypt code encrypted by _encrypt_code"""
-    secret_key = settings.SECRET_KEY
+    # In some blowfish implementations, > 56 char keys can cause problems
+    secret_key = settings.SECRET_KEY[:56]
     encryption_object = Blowfish.new(secret_key)
     # strip padding from decrypted credit card number
     return encryption_object.decrypt(base64.b64decode(code)).rstrip('X')
 
 def _encrypt_code(code):
     """Quick encrypter for CC codes or code fragments"""
-    secret_key = settings.SECRET_KEY
+    # In some blowfish implementations, > 56 char keys can cause problems
+    secret_key = settings.SECRET_KEY[:56]
     encryption_object = Blowfish.new(secret_key)
     # block cipher length must be a multiple of 8
     padding = ''

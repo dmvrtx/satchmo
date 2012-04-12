@@ -98,14 +98,9 @@ class ContactManager(models.Manager):
         Returns:
         - Contact object or None
         """
-        contact = None
-        if request.session.get(CUSTOMER_ID):
-            try:
-                contact = Contact.objects.get(id=request.session[CUSTOMER_ID])
-            except Contact.DoesNotExist:
-                del request.session[CUSTOMER_ID]
 
-        if contact is None and request.user.is_authenticated():
+        contact = None
+        if request.user.is_authenticated():
             try:
                 contact = Contact.objects.get(user=request.user.id)
                 request.session[CUSTOMER_ID] = contact.id
@@ -114,6 +109,22 @@ class ContactManager(models.Manager):
         else:
             # Don't create a Contact if the user isn't authenticated.
             create = False
+            
+        if request.session.get(CUSTOMER_ID):
+            try:
+                contactBySession = Contact.objects.get(id=request.session[CUSTOMER_ID])
+                if contact is None:
+                    contact = contactBySession
+                elif contact != contactBySession:
+                    # For some reason the authenticated id and the session customer ID don't match.
+                    # Let's bias the authenticated ID and kill this customer ID:
+                    log.debug("CURIOUS: The user authenticated as %r (contact id:%r) and a session as %r (contact id:%r)" %
+                               (contact.user.get_full_name(), contact.id, Contact.objects.get(id=request.session[CUSTOMER_ID]).full_name, request.session[CUSTOMER_ID]))
+                    log.debug("Deleting the session contact.")
+                    del request.session[CUSTOMER_ID]
+            except Contact.DoesNotExist:
+                log.debug("This user has a session stored customer id (%r) which doesn't exist anymore. Removing it from the session." % request.session[CUSTOMER_ID])
+                del request.session[CUSTOMER_ID]
 
         if contact is None:
             if create:
@@ -204,6 +215,13 @@ class Contact(models.Model):
 
         super(Contact, self).save(**kwargs)
 
+    def _get_address_book_entries(self):
+        """ Return all non primary shipping and billing addresses
+        """
+        return AddressBook.objects.filter(contact=self.pk).exclude(is_default_shipping=True).exclude(is_default_billing=True)
+        
+    address_book_entries=property(_get_address_book_entries)
+        
     class Meta:
         verbose_name = _("Contact")
         verbose_name_plural = _("Contacts")

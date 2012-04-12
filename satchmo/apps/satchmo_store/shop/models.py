@@ -14,14 +14,15 @@ from django.utils.translation import ugettext, ugettext_lazy as _
 from l10n.models import Country
 from l10n.utils import moneyfmt
 from livesettings import ConfigurationSettings, config_value
-from payment.fields import PaymentChoiceCharField
 from product.models import Discount, Product, Price, get_product_quantity_adjustments
 from product.prices import PriceAdjustmentCalc, PriceAdjustment
 from satchmo_ext.discounts.signals import post_recalculate_total
 from satchmo_store.contact.models import Contact
 from satchmo_utils.fields import CurrencyField
 from satchmo_utils.numbers import trunc_decimal
-from shipping.fields import ShippingChoiceCharField
+import shipping.fields
+import payment.config
+from satchmo_utils.iterchoices import iterchoices_db
 from tax.utils import get_tax_processor
 import datetime
 import keyedcache
@@ -187,6 +188,9 @@ class NullCart(object):
     def __len__(self):
         return 0
 
+    def save(self):
+        pass
+
 class OrderCart(NullCart):
     """Allows us to fake a cart if we are reloading an order."""
 
@@ -215,6 +219,9 @@ class OrderCart(NullCart):
 
     def __len__(self):
         return self.numItems
+
+    def __iter__(self):
+        return iter(self.cartitem_set.all())
 
 class CartManager(models.Manager):
 
@@ -383,7 +390,8 @@ class Cart(models.Model):
         item_to_modify.quantity -= number_removed
         if item_to_modify.quantity <= 0:
             item_to_modify.delete()
-        self.save()
+        else:
+            item_to_modify.save()
 
 
     def merge_carts(self, src_cart):
@@ -394,6 +402,7 @@ class Cart(models.Model):
         for item in src_cart.cartitem_set.all():
             self.add_item(item.product, item.quantity, item.details.all())
             item.delete()
+        self.save()
 
     def empty(self):
         for item in self.cartitem_set.all():
@@ -425,9 +434,21 @@ class Cart(models.Model):
         for cartitem in self.cartitem_set.all():
             if cartitem.is_shippable:
                 p = cartitem.product
-                q =  int(cartitem.quantity.quantize(Decimal('0'), ROUND_CEILING))
+                q = int(cartitem.quantity.quantize(Decimal('0'), ROUND_CEILING))
                 for single in range(0, q):
                     items.append(p)
+        return items
+
+    def get_shipment_by_amount(self):
+        """
+        Returna list of shippable products, with it's quantity
+        """
+        items = []
+        for cartitem in self.cartitem_set.all():
+            if cartitem.is_shippable:
+                p = cartitem.product
+                q = int(cartitem.quantity.quantize(Decimal('0'), ROUND_CEILING))
+                items.append((q,p))
         return items
 
     class Meta:
@@ -608,6 +629,23 @@ class OrderManager(models.Manager):
             pass
         return False
 
+class OrderVariable(models.Model):
+    order = models.ForeignKey("Order", related_name="variables")
+    key = models.SlugField(_('key'), )
+    value = models.CharField(_('value'), max_length=100)
+
+    class Meta:
+        ordering=('key',)
+        verbose_name = _("Order variable")
+        verbose_name_plural = _("Order variables")
+
+    def __unicode__(self):
+        if len(self.value)>10:
+            v = self.value[:10] + '...'
+        else:
+            v = self.value
+        return u"OrderVariable: %s=%s" % (self.key, v)
+
 class Order(models.Model):
     """
     Orders contain a copy of all the information at the time the order was
@@ -642,10 +680,10 @@ class Order(models.Model):
     method = models.CharField(_("Order method"),
         choices=ORDER_CHOICES, max_length=50, blank=True)
     shipping_description = models.CharField(_("Shipping Description"),
-        max_length=50, blank=True, null=True)
+        max_length=200, blank=True, null=True)
     shipping_method = models.CharField(_("Shipping Method"),
-        max_length=50, blank=True, null=True)
-    shipping_model = ShippingChoiceCharField(_("Shipping Models"),
+        max_length=200, blank=True, null=True)
+    shipping_model = models.CharField(_("Shipping Models"), choices=iterchoices_db(shipping.fields.shipping_choices),
         max_length=30, blank=True, null=True)
     shipping_cost = CurrencyField(_("Shipping Cost"),
         max_digits=18, decimal_places=10, blank=True, null=True)
@@ -804,6 +842,16 @@ class Order(models.Model):
     def _bill_country_name(self):
         return Country.objects.get(iso2_code=self.bill_country).name
     bill_country_name = property(_bill_country_name)
+
+    def _ship_first_name(self):
+        """Given the addressee name, try to return a first name"""
+        return ' '.join(self.ship_addressee.split()[0:-1]) or ''
+    ship_first_name = property(_ship_first_name)
+
+    def _ship_last_name(self):
+        """Given the addressee name, try to return a last name"""
+        return ' '.join(self.ship_addressee.split()[-1:]) or ''
+    ship_last_name = property(_ship_last_name)
 
     def _discounted_sub_total(self):
         return self.sub_total - self.item_discount
@@ -1220,7 +1268,7 @@ class OrderStatus(models.Model):
         get_latest_by = 'time_stamp'
 
 class OrderPaymentBase(models.Model):
-    payment = PaymentChoiceCharField(_("Payment Method"),
+    payment = models.CharField(_("Payment Method"), choices=iterchoices_db(payment.config.labelled_gateway_choices),
         max_length=25, blank=True)
     amount = CurrencyField(_("amount"),
         max_digits=18, decimal_places=10, blank=True, null=True)
@@ -1341,23 +1389,6 @@ class OrderPendingPayment(OrderPaymentBase):
 
 class OrderPaymentFailure(OrderPaymentBase):
     order = models.ForeignKey(Order, null=True, blank=True, related_name='paymentfailures')
-
-class OrderVariable(models.Model):
-    order = models.ForeignKey(Order, related_name="variables")
-    key = models.SlugField(_('key'), )
-    value = models.CharField(_('value'), max_length=100)
-
-    class Meta:
-        ordering=('key',)
-        verbose_name = _("Order variable")
-        verbose_name_plural = _("Order variables")
-
-    def __unicode__(self):
-        if len(self.value)>10:
-            v = self.value[:10] + '...'
-        else:
-            v = self.value
-        return u"OrderVariable: %s=%s" % (self.key, v)
 
 class OrderTaxDetail(models.Model):
     """A tax line item"""

@@ -9,7 +9,7 @@
 <h4>{% trans 'Status' %}</h4>
 {% for status in order.orderstatus_set.all %}
 <p>{{status.time_stamp|date:"F jS Y H:i" }}: {{ status.status|status_label }}<br/>
-{% if status.notes %}<i>{{ status.notes }}</i>{% endif %}
+{% if status.notes %}<i>{% trans status.notes %}</i>{% endif %}
 </p>
 {% endfor %}
 
@@ -39,10 +39,11 @@
 
 {% if order.is_shippable %}
 <h4>{% trans "Shipping To" %}</h4>
+{{ order.ship_addressee }}<br/>
 {{ order.full_ship_street }}<br/>
 {{ order.ship_city }}<br/>
 {{ order.ship_state }}<br/>
 {{ order.ship_postal_code }}<br/>
-{{ order.ship_country }}<br/>
+{{ order.ship_country_name|title }}<br/>
 {% endif %}
 </div>

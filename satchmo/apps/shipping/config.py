@@ -14,7 +14,7 @@ SHIPPING_ACTIVE = config_register(MultipleStringValue(SHIPPING_GROUP,
     choices=[('shipping.modules.per', _('Per piece'))],
     ordering=0
     ))
-    
+
 config_register(
     StringValue(SHIPPING_GROUP,
         'HIDING',
@@ -27,7 +27,15 @@ config_register(
             ('YES', _('Yes')),
             ('DESCRIPTION', _('Show description only'))
         )))
-        
+
+config_register(
+    BooleanValue(SHIPPING_GROUP,
+        'DOWNLOAD_PDFS',
+        description = _("Download PDFs from admin page"),
+        default=True,
+        ordering=5
+        ))
+
 config_register(
     BooleanValue(SHIPPING_GROUP,
         'SELECT_CHEAPEST',
@@ -38,15 +46,15 @@ config_register(
 
 
 # --- Load default shipping modules.  Ignore import errors, user may have deleted them. ---
-# DO NOT ADD 'tiered' or 'no' to this list.  
+# DO NOT ADD 'tiered' or 'no' to this list.
 # 'no' is used internally
 # 'Tiered' is special, since it needs to be added as a module.  To enable it,
 # just add shipping.modules.tiered to your INSTALLED_APPS
-_default_modules = ('canadapost', 'dummy', 'fedex', 'flat', 'per', 'ups', 'usps')
+_default_modules = ('canadapost', 'dummy', 'fedex_web_services', 'flat', 'per', 'ups', 'usps')
 
 for module in _default_modules:
     try:
-    	load_module("shipping.modules.%s.config" % module)
+        load_module("shipping.modules.%s.config" % module)
     except ImportError:
         log.debug('Could not load default shipping module configuration: %s', module)
 
@@ -60,7 +68,7 @@ for extra in extra_shipping:
         log.warn('Could not load shipping module configuration: %s' % extra)
 
 class ShippingModuleNotFound(Exception):
-    def __init__(key):
+    def __init__(self, key):
         self.key = key
 
 def shipping_methods():
@@ -71,7 +79,7 @@ def shipping_methods():
         module = load_module(m)
         methods.extend(module.get_methods())
     return methods
-    
+
 def shipping_method_by_key(key):
     if key and key != "NoShipping":
         for method in shipping_methods():
@@ -80,12 +88,12 @@ def shipping_method_by_key(key):
     else:
         import shipping.modules.no.shipper as noship
         method = noship.Shipper()
-        
+
     if method:
         return method
     else:
         raise ShippingModuleNotFound(key)
-        
+
 
 def shipping_choices():
     choices = []

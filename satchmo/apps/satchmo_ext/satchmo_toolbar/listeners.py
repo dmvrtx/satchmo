@@ -8,10 +8,23 @@ import datetime
 import logging
 import operator
 from product.models import Product
-from product.modules.configurable.models import ProductVariation
 
 
 log = logging.getLogger('satchmo_toolbar')
+
+def _get_all_variations(product):
+    """Helper function to get all the variations.
+    This is being used to add the ProductVariation import here instead of the
+    top of the file. See #1170 for the issue.
+    """
+    from product.modules.configurable.models import ProductVariation
+    total_sales = 0
+    variation_items = []
+    all_variations = ProductVariation.objects.filter(parent=product)
+    for variation in all_variations:
+        total_sales += variation.product.total_sold
+        variation_items.append(variation.product)
+    return variation_items, total_sales
 
 def add_toolbar_context(sender, context={}, **kwargs):
     user = threadlocals.get_current_user()
@@ -26,11 +39,7 @@ def add_toolbar_context(sender, context={}, **kwargs):
             show_sales = True
             subtypes = product.get_subtypes()
             if 'ConfigurableProduct' in subtypes:
-                total_sales = 0
-                all_variations = ProductVariation.objects.filter(parent=product)
-                for variation in all_variations:
-                    total_sales += variation.product.total_sold
-                    variation_items.append(variation.product)
+                variation_items, total_sales = _get_all_variations(product)
             else:
                 total_sales = product.total_sold
                 
@@ -43,7 +52,7 @@ def add_toolbar_context(sender, context={}, **kwargs):
         st['st_new_order_ct'] = newq.count()
         amounts = newq.values_list('total', flat=True)
         if amounts:
-            newtotal = reduce(operator.add, amounts)
+            newtotal = reduce(operator.add, filter(None, amounts), 0) 
         else:
             newtotal = 0
         st['st_new_order_total'] = newtotal

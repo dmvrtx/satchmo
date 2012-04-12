@@ -1,6 +1,8 @@
 from decimal import Decimal
+from django.contrib import messages
 from django.core import urlresolvers
-from django.http import HttpResponseRedirect, HttpResponse, Http404
+from django.core.exceptions import ObjectDoesNotExist
+from django.http import HttpResponseRedirect, HttpResponse
 from django.shortcuts import render_to_response
 from django.template import RequestContext, loader
 from django.utils.datastructures import MultiValueDictKeyError
@@ -15,9 +17,10 @@ from product.views import optionids_from_post
 from satchmo_store.shop import forms
 from satchmo_store.shop.exceptions import CartAddProhibited
 from satchmo_store.shop.models import Cart, CartItem, NullCart, NullCartItem
-from satchmo_store.shop.signals import satchmo_cart_changed, satchmo_cart_add_complete, satchmo_cart_details_query
+from satchmo_store.shop.signals import satchmo_cart_changed, satchmo_cart_add_complete, satchmo_cart_details_query, satchmo_cart_view
 from satchmo_utils.numbers import RoundedDecimalError, round_decimal
 from satchmo_utils.views import bad_or_missing
+from l10n.utils import moneyfmt
 import logging
 
 try:
@@ -28,13 +31,13 @@ except ImportError:
 log = logging.getLogger('shop.views.cart')
 
 
-def _json_response(data, error=False, template="shop/json.html"):
-    response = HttpResponse(loader.render_to_string(template, 
-        {'json':mark_safe(simplejson.dumps(data))}), mimetype='application/javascript')
-    
+def _json_response(data, error=False, **kwargs):
+    response = HttpResponse( simplejson.dumps( data ),
+                            mimetype = 'application/json')
+
     if error:
         response.status_code = 400
-    
+
     return response
 
 def decimal_too_big(quantity):
@@ -91,13 +94,11 @@ def _set_quantity(request, force_delete=False):
         cartitem.delete()
         cartitem = NullCartItem(itemid)
     else:
-        from satchmo_store.shop.models import Config
-        config = Config.objects.get_current()
         if config_value('PRODUCT','NO_STOCK_CHECKOUT') == False:
             stock = cartitem.product.items_in_stock
             log.debug('checking stock quantity.  Have %d, need %d', stock, qty)
             if stock < qty:
-                return (False, cart, cartitem, _("Not enough items of '%s' in stock.") % cartitem.product.translated_name())
+                return (False, cart, cartitem, _("Unfortunately we only have %(stock)d '%(cartitem_name)s' in stock.") % {'stock': stock, 'cartitem_name': cartitem.product.translated_name()})
 
         cartitem.quantity = round_decimal(qty, places=cartplaces)
         cartitem.save()
@@ -119,6 +120,10 @@ def display(request, cart=None, error_message='', default_view_tax=None):
         sale = find_best_auto_discount(products)
     else:
         sale = None
+
+    satchmo_cart_view.send(cart,
+                           cart=cart,
+                           request=request)
 
     context = RequestContext(request, {
         'cart': cart,
@@ -162,7 +167,7 @@ def add(request, id=0, redirect_to='satchmo_cart'):
     # Then we validate that we can round it appropriately.
     try:
         quantity = round_decimal(formdata['quantity'], places=cartplaces, roundfactor=roundfactor)
-    except RoundedDecimalError, P:
+    except RoundedDecimalError:
         return _product_error(request, product,
             _("Invalid quantity."))
 
@@ -191,25 +196,29 @@ def add(request, id=0, redirect_to='satchmo_cart'):
     satchmo_cart_changed.send(cart, cart=cart, request=request)
 
     if request.is_ajax():
-        data = {}
-        data['id'] = product.id
-        data['name'] = product.translated_name()
-        data['cart_count'] = str(round_decimal(cart.numItems, 2))
-        data['cart_total'] = str(cart.total)
-        # Legacy result, for now
-        data['results'] = _("Success")
+        data = {
+            'id': product.id,
+            'name': product.translated_name(),
+            'item_id': added_item.id,
+            'item_qty': str(round_decimal(quantity, 2)),
+            'item_price': unicode(moneyfmt(added_item.line_total)) or "0.00",
+            'cart_count': str(round_decimal(cart.numItems, 2)),
+            'cart_total': unicode(moneyfmt(cart.total)),
+            # Legacy result, for now
+            'results': _("Success"),
+        }
         log.debug('CART AJAX: %s', data)
-        
+
         return _json_response(data)
     else:
         url = urlresolvers.reverse(redirect_to)
         return HttpResponseRedirect(url)
 
-def add_ajax(request, id=0, template="shop/json.html"):
+def add_ajax(request, id=0, **kwargs):
     # Allow for legacy apps to still use this url
     if not request.META.has_key('HTTP_X_REQUESTED_WITH'):
         request.META['HTTP_X_REQUESTED_WITH'] = 'XMLHttpRequest'
-        
+    log.warning('satchmo_cart_add_ajax is deprecated, use satchmo_cart_add')
     return add(request, id)
 
 def add_multiple(request, redirect_to='satchmo_cart', products=None, template="shop/multiple_product_form.html"):
@@ -248,13 +257,13 @@ def remove(request):
         return bad_or_missing(request, "Please use a POST request")
 
     success, cart, cartitem, errors = _set_quantity(request, force_delete=True)
-    
+
     if request.is_ajax():
         if errors:
             return _json_response({'errors': errors, 'results': _("Error")}, True)
         else:
             return _json_response({
-                'cart_total': str(cart.total),
+                'cart_total': unicode(moneyfmt(cart.total)),
                 'cart_count': str(cart.numItems),
                 'item_id': cartitem.id,
                 'results': success, # Legacy
@@ -271,7 +280,8 @@ def remove_ajax(request, template="shop/json.html"):
     # Allow for legacy apps to still use this url
     if not request.META.has_key('HTTP_X_REQUESTED_WITH'):
         request.META['HTTP_X_REQUESTED_WITH'] = 'XMLHttpRequest'
-        
+
+    log.warning('satchmo_cart_remove_ajax is deprecated, use satchmo_cart_remove')
     return remove(request)
 
 def set_quantity(request):
@@ -285,7 +295,7 @@ def set_quantity(request):
         return HttpResponseRedirect(cart_url)
 
     success, cart, cartitem, errors = _set_quantity(request)
-            
+
     if request.is_ajax():
         if errors:
             return _json_response({'errors': errors, 'results': _("Error")}, True)
@@ -293,29 +303,30 @@ def set_quantity(request):
             return _json_response({
                 'item_id': cartitem.id,
                 'item_qty': str(cartitem.quantity) or "0",
-                'item_price': str(cartitem.line_total) or "0.00",
-                'cart_total': str(cart.total) or "0.00",
+                'item_price': unicode(moneyfmt(cartitem.line_total)) or "0.00",
+                'cart_total': unicode(moneyfmt(cart.total)) or "0.00",
                 'cart_count': str(cart.numItems) or '0',
             })
-        
+
     else:
         if success:
             return HttpResponseRedirect(cart_url)
         else:
             return display(request, cart = cart, error_message = errors)
-        
-        
+
+
 def set_quantity_ajax(request, template="shop/json.html"):
     """Set the quantity for a cart item, returning results formatted for handling by script.
     Kept for legacy apps.
     """
     if not request.META.has_key('HTTP_X_REQUESTED_WITH'):
         request.META['HTTP_X_REQUESTED_WITH'] = 'XMLHttpRequest'
-        
+
     return set_quantity(request)
 
 def product_from_post(productslug, formdata):
     product = Product.objects.get_by_site(slug=productslug)
+    origproduct = product
     log.debug('found product: %s', product)
     p_types = product.get_subtypes()
     details = []
@@ -324,23 +335,29 @@ def product_from_post(productslug, formdata):
     if 'ConfigurableProduct' in p_types:
         # This happens when productname cannot be updated by javascript.
         cp = product.configurableproduct
-        chosenOptions = optionids_from_post(cp, formdata)
-        optproduct = cp.get_product_from_options(chosenOptions)
-        if not optproduct:
-            log.debug('Could not fully configure a ConfigurableProduct [%s] with [%s]', product, chosenOptions)
-            raise Product.DoesNotExist()
-        else:
-            product = optproduct
+        # catching a nasty bug where ConfigurableProducts with no option_groups can't be ordered
+        if cp.option_group.count() > 0:
+            chosenOptions = optionids_from_post(cp, formdata)
+            optproduct = cp.get_product_from_options(chosenOptions)
+            if not optproduct:
+                log.debug('Could not fully configure a ConfigurableProduct [%s] with [%s]', product, chosenOptions)
+                raise Product.DoesNotExist()
+            else:
+                product = optproduct
 
     if 'CustomProduct' in p_types:
-        cp = product.customproduct
+        try:
+            cp = product.customproduct
+        except ObjectDoesNotExist:
+            # maybe we've already looked up the subtype product above, try the original
+            cp = origproduct.customproduct
         for customfield in cp.custom_text_fields.all():
             if customfield.price_change is not None:
                 price_change = customfield.price_change
             else:
                 price_change = zero
             data = { 'name' : customfield.translated_name(),
-                     'value' : formdata["custom_%s" % customfield.slug],
+                     'value' : formdata.get("custom_%s" % customfield.slug, ''),
                      'sort_order': customfield.sort_order,
                      'price_change': price_change }
             details.append(data)
@@ -378,12 +395,11 @@ def product_from_post(productslug, formdata):
     return product, details
 
 def _product_error(request, product, msg):
-    request.session['ERRORS'] = msg
     log.debug('Product Error: %s', msg)
-    
+
     if request.is_ajax():
         return _json_response({'errors': [msg,]}, error=True)
     else:
-        request.session['ERRORS'] = msg
+        messages.error(request, msg)
         return HttpResponseRedirect(product.get_absolute_url())
 

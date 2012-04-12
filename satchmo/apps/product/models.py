@@ -11,6 +11,7 @@ from django.core import urlresolvers
 from django.core.cache import cache
 from django.db import models
 from django.db.models import Q
+from django.utils.encoding import smart_str
 from django.utils.translation import get_language, ugettext, ugettext_lazy as _
 from l10n.utils import moneyfmt, lookup_translation
 from livesettings import config_value, SettingNotSet, config_value_safe
@@ -62,8 +63,8 @@ def default_weight_unit():
         return 'lb'
 
 class CategoryManager(models.Manager):
-    def active(self):
-        return self.filter(is_active=True)
+    def active(self, **kwargs):
+        return self.filter(is_active=True, **kwargs)
 
     def by_site(self, site=None, **kwargs):
         """Get all categories for this site"""
@@ -72,7 +73,7 @@ class CategoryManager(models.Manager):
 
         site = site.id
 
-        return self.active().filter(site__id__exact = site, **kwargs)
+        return self.active(site__id__exact = site, **kwargs)
 
     def get_by_site(self, site=None, **kwargs):
         if not site:
@@ -85,7 +86,7 @@ class CategoryManager(models.Manager):
         if not site:
             site = Site.objects.get_current()
 
-        return self.active().filter(parent__isnull=True, site=site, **kwargs)
+        return self.active(parent__isnull=True, site=site, **kwargs)
 
     def search_by_site(self, keyword, site=None, include_children=False):
         """Search for categories by keyword.
@@ -139,19 +140,21 @@ class Category(models.Model):
             if self.parent_id and self.parent != self:
                 img = self.parent.main_image
 
-        if not img:
+        if not img and config_value('PRODUCT', 'SHOW_NO_PHOTO_IN_CATEGORY'):
             #This should be a "Image Not Found" placeholder image
             try:
                 img = CategoryImage.objects.filter(category__isnull=True).order_by('sort')[0]
             except IndexError:
                 import sys
-                print >>sys.stderr, 'Warning: default category image not found - try syncdb'
-
+                print >>sys.stderr, 'Warning: default category image not found'
         return img
 
     main_image = property(_get_mainImage)
 
-    def active_products(self, variations=True, include_children=False, **kwargs):
+    def active_products(self, variations=False, include_children=False, **kwargs):
+        """Variations determines whether or not product variations are included
+        in most templates we are not returning all variations, just the parent product.
+        """
         if not include_children:
             qry = self.product_set.all()
         else:
@@ -159,7 +162,8 @@ class Category(models.Model):
             qry = Product.objects.filter(category__in=cats)
 
         if variations:
-            return qry.filter(site=self.site, active=True, **kwargs)
+            slugs = qry.filter(site=self.site, active=True, **kwargs).values_list('slug',flat=True)
+            return Product.objects.filter(Q(productvariation__parent__product__slug__in = slugs)|Q(slug__in = slugs))
         else:
             return qry.filter(site=self.site, active=True, productvariation__parent__isnull=True, **kwargs)
 
@@ -597,6 +601,8 @@ class Discount(models.Model):
         """Tests if discount is valid for a single product"""
         if not product.is_discountable:
             return False
+        elif self.allValid:
+            return True
         p = self.valid_products.filter(id__exact = product.id)
         return p.count() > 0 or \
             (product.slug in self._valid_products_in_categories())
@@ -606,49 +612,49 @@ class Discount(models.Model):
         verbose_name_plural = _("Discounts")
 
     def apply_even_split(cls, discounted, amount):
-        lastct = -1
-        ct = len(discounted)
-        work = {}
+        """Splits ``amount`` to the most even values,
+        but none of them is greater then the value in the dict ``discounted``.
+        > > > cls.apply_even_split({1: Decimal('3.00'), 2: Decimal('8.00'), 3: Decimal('9.00')}, Decimal('10.00'))
+        {1: Decimal('3.00'), 2: Decimal('3.50'), 3: Decimal('3.50')}
+        """
         context = Context(rounding=ROUND_FLOOR)
-        if ct > 0:
-            split_discount = context.divide(amount, Decimal(ct)).quantize(Decimal("0.01"))
-            remainder = amount - context.multiply(split_discount, Decimal(ct))
-        else:
-            split_discount = remainder = Decimal("0.00")
+        eps = Decimal('0.01')
+        zero = 0 * eps
+        amount = context.quantize(amount, eps)
+        lastct = None
+        ct = sentinel = len(discounted)
+        work = {}
+        applied = delta = zero
+        # "eps"     : precision, rounding of every input and the smallest increment for splitting of remainder
+        # "ct"      : how many item from the previous round can be splitted even from the previous round
+        # "applied" : how much has been applied total in the previous round
+        # "delta"   : how much has been applied for limited values in the previous round
 
-        while ct > 0:
-            log.debug("Trying with ct=%i", ct)
-            delta = Decimal("0.00")
-            applied = Decimal("0.00")
+        while ct > 0 and applied < amount and ct != lastct and sentinel:
+            split_discount = context.quantize((amount - delta) / ct, eps)
+            remainder = amount - delta - split_discount * ct
+            lastct = ct
+
+            ct = len(discounted)
             work = {}
-            should_apply_remainder = True
+            applied = delta = zero
             for lid, price in discounted.items():
-                if should_apply_remainder \
-                    and remainder > Decimal('0') \
-                    and price > split_discount + remainder:
-                    to_apply = split_discount + remainder
-                    should_apply_remainder = False
-                elif price > split_discount:
-                    to_apply = split_discount
+                if price > split_discount:
+                    if remainder:
+                        to_apply = split_discount + eps
+                        remainder -= eps
+                    else:
+                        to_apply = split_discount
                 else:
-                    to_apply = price
-                    delta += price
+                    to_apply = context.quantize(price, eps)
+                    delta += to_apply
                     ct -= 1
-
                 work[lid] = to_apply
                 applied += to_apply
+            sentinel -= 1
 
-            if applied >= amount - Decimal("0.01"):
-                ct = 0
-
-            if ct == lastct:
-                ct = 0
-            else:
-                lastct = ct
-
-            if ct > 0:
-                split_discount = (amount-delta)/ct
-
+        assert sentinel >= 0, "Infinite loop in 'apply_even_split'"
+        assert applied == amount or applied <= amount and applied == delta, "Internal error in 'apply_even_split'"
         round_cents(work)
         return work
 
@@ -753,7 +759,7 @@ class Option(models.Model):
     unique_id = property(_get_unique_id)
 
     def __repr__(self):
-        return u"<Option: %s>" % self.name
+        return "<Option: %s>" % repr(self.name)
 
     def __unicode__(self):
         return u'%s: %s' % (self.option_group.name, self.name)
@@ -1226,7 +1232,8 @@ class ProductPriceLookupManager(models.Manager):
                 price=price,
                 quantity=qty,
                 discountable=product.is_discountable,
-                items_in_stock=product.items_in_stock)
+                items_in_stock=product.items_in_stock,
+                productimage_set=product.productimage_set)
             obj.save()
             objs.append(obj)
         return objs
@@ -1263,7 +1270,7 @@ class ProductPriceLookupManager(models.Manager):
         return objs
 
     def delete_for_product(self, product):
-        for obj in self.filter(productslug=product.slug):
+        for obj in self.filter(productslug=product.slug, siteid=product.site.id):
             obj.delete()
 
     def rebuild_all(self, site=None):
@@ -1297,7 +1304,7 @@ class ProductPriceLookup(models.Model):
     siteid = models.IntegerField()
     key = models.CharField(max_length=60, null=True)
     parentid = models.IntegerField(null=True)
-    productslug = models.CharField(max_length=255)
+    productslug = models.CharField(max_length=255, db_index = True)
     price = models.DecimalField(max_digits=14, decimal_places=6)
     quantity = models.DecimalField(max_digits=18, decimal_places=6)
     active = models.BooleanField()
@@ -1310,6 +1317,16 @@ class ProductPriceLookup(models.Model):
         return Product.objects.get(slug=self.productslug)
 
     product = property(fget=_product)
+
+    def _productimage_set(self):
+        try:
+                return ProductImage.objects.filter(product=self.product)
+        except ProductImage.DoesNotExist:
+                return None
+        except Product.DoesNotExist:
+                return None
+
+    productimage_set = property(fget=_productimage_set)
 
     def _dynamic_price(self):
         """Get the current price as modified by all listeners."""
@@ -1382,6 +1399,8 @@ class ProductAttribute(models.Model):
     class Meta:
         verbose_name = _("Product Attribute")
         verbose_name_plural = _("Product Attributes")
+        ordering = ('option__sort_order',)
+
 
     def __unicode__(self):
         return self.option.name
@@ -1406,6 +1425,7 @@ class CategoryAttribute(models.Model):
     class Meta:
         verbose_name = _("Category Attribute")
         verbose_name_plural = _("Category Attributes")
+        ordering = ('option__sort_order',)
 
     def __unicode__(self):
         return self.option.name
@@ -1489,7 +1509,12 @@ class ProductImage(models.Model):
 
     def _get_filename(self):
         if self.product:
-            return '%s-%s' % (self.product.slug, self.id)
+            # In some cases the name could be too long to fit into the field
+            # Truncate it if this is the case
+            pic_field_max_length = self._meta.get_field('picture').max_length
+            max_slug_length = pic_field_max_length -len('images/productimage-picture-.jpg') - len(str(self.id))
+            slug = self.product.slug[:max_slug_length]
+            return '%s-%s' % (slug, self.id)
         else:
             return 'default'
     _filename = property(_get_filename)
@@ -1524,7 +1549,7 @@ class ProductImageTranslation(models.Model):
         unique_together = ('productimage', 'languagecode', 'version')
 
     def __unicode__(self):
-        return u"ProductImageTranslation: [%s] (ver #%i) %s Name: %s" % (self.languagecode, self.version, self.productimage, self.name)
+        return u"ProductImageTranslation: [%s] (ver #%i) %s" % (self.languagecode, self.version, self.productimage)
 
 class TaxClass(models.Model):
     """
@@ -1545,9 +1570,7 @@ class TaxClass(models.Model):
         verbose_name_plural = _("Tax Classes")
 
 def make_option_unique_id(groupid, value):
-    if isinstance(value, unicode):
-        value = value.encode('utf-8')
-    return '%s-%s' % (str(groupid), str(value),)
+    return '%s-%s' % (smart_str(groupid), smart_str(value),)
 
 def round_cents(work):
     cents = Decimal("0.01")

@@ -1,3 +1,4 @@
+from decimal import Decimal
 from django.utils.translation import ugettext_lazy as _
 from livesettings import *
 
@@ -16,7 +17,7 @@ config_register_list(
         description=_("UPS XML Access Key"),
         help_text=_("XML Access Key Provided by UPS"),
         default=u""),
-    
+
     StringValue(SHIPPING_GROUP,
         'USER_ID',
         description=_("UPS User ID"),
@@ -28,25 +29,32 @@ config_register_list(
         description=_("UPS Account Number"),
         help_text=_("UPS Account Number."),
         default=u""),
-    
+
     StringValue(SHIPPING_GROUP,
         'USER_PASSWORD',
         description=_("UPS User Password"),
         help_text=_("User password provided by UPS site."),
         default=u""),
-    
+
     MultipleStringValue(SHIPPING_GROUP,
         'UPS_SHIPPING_CHOICES',
-        description=_("UPS Shipping Choices Available to customers."),
+        description=_("UPS Shipping Choices Available to customers. These are valid domestic codes only."),
         choices = (
             (('01', 'Next Day Air')),
             (('02', 'Second Day Air')),
             (('03', 'Ground')),
             (('12', '3 Day Select')),
             (('13', 'Next Day Air Saver')),
-            (('11', 'Standard'))
+            (('14', 'Next Day Air Early AM')),
+            (('59', '2nd Day Air AM')),
         ),
-        default = ('11',)),
+        default = ('03',)),
+
+     DecimalValue(SHIPPING_GROUP,
+        'HANDLING_FEE',
+        description=_("Handling Fee"),
+        help_text=_("The cost of packaging and getting the package off"),
+        default=Decimal('0.00')),
 
     StringValue(SHIPPING_GROUP,
         'SHIPPING_CONTAINER',
@@ -57,6 +65,18 @@ config_register_list(
             (('02', 'PACKAGE / CUSTOMER SUPPLIED')),
         ),
         default = u"00"),
+
+    BooleanValue(SHIPPING_GROUP,
+        'SINGLE_BOX',
+        description=_("Single Box?"),
+        help_text=_("Use just one box and ship by weight?  If no then every item will be sent in its own box."),
+        default=True),
+
+    BooleanValue(SHIPPING_GROUP,
+        'TIME_IN_TRANSIT',
+        description=_("Time in Transit?"),
+        help_text=_("Use the UPS Time In Transit API? It is slower but delivery dates are more accurate."),
+        default=False),
 
     StringValue(SHIPPING_GROUP,
         'PICKUP_TYPE',

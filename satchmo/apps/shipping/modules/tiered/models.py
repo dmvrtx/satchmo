@@ -176,6 +176,9 @@ class Carrier(models.Model):
     
     def price(self, total):
         """Get a price for this total."""
+        if total == 0:
+            total = Decimal('0.00')# total was "0E-8", which breaks mysql
+
         # first check for special discounts
         prices = self.tiers.filter(expires__isnull=False, min_total__lte=total).exclude(expires__lt=datetime.date.today())
 
@@ -211,7 +214,7 @@ class CarrierTranslation(models.Model):
 class ShippingTier(models.Model):
     carrier = models.ForeignKey('Carrier', related_name='tiers')
     min_total = models.DecimalField(_("Min Price"), 
-        help_text=_('The minumum price for this tier to apply'), 
+        help_text=_('The minimum price for this tier to apply'), 
         max_digits=10, decimal_places=2, )
     price = models.DecimalField(_("Shipping Price"), max_digits=10, decimal_places=2, )
     expires = models.DateField(_("Expires"), null=True, blank=True)

@@ -57,6 +57,7 @@ test mode turned on.
         'LABEL',
         description=_('English name for this group on the checkout screens'),
         default = 'Credit Cards',
+        dummy = _('Credit Cards'), # Force this to appear on po-files
         help_text = _('This will be passed to the translation utility')),
 
     StringValue(PAYMENT_GROUP,
@@ -88,7 +89,7 @@ test mode turned on.
         'CAPTURE',
         description=_('Capture Payment immediately?'),
         default=True,
-        help_text=_('IMPORTANT: If false, a capture attempt will be made when the order is marked as shipped."')),
+        help_text=_('IMPORTANT: If false, a capture attempt will be made when the order is marked as shipped.')),
 
     BooleanValue(PAYMENT_GROUP,
         'EXTRA_LOGGING',

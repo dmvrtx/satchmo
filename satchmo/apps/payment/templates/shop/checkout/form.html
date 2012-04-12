@@ -25,7 +25,7 @@
 {{ form.non_field_errors }}
 {% endif %}
 {% if user.is_anonymous %}
-<form method="post" action="{% if is_secure %}{% url auth_secure_login %}{% else %}{{ login_url }}{% endif %}">
+<form method="post" action="{% if is_secure %}{% url auth_secure_login %}{% else %}{{ login_url }}{% endif %}">{% csrf_token %}
 <input type="hidden" name="next" value="{% url satchmo_checkout-step1 %}" />
 <table>
 		<tr>
@@ -41,7 +41,7 @@
 </form>
 {% endif %}
 
-<form method="post" action="{% url satchmo_checkout-step1 %}">
+<form method="post" action="{% url satchmo_checkout-step1 %}">{% csrf_token %}
 <table>
     <tr><td colspan="2"><p>{% trans "You'll need to fill out at least the fields with a *" %}</p></td></tr>
 
@@ -79,7 +79,7 @@
     <tr><td><label for="id_discount">{% trans "Discount code" %}</label></td><td>{{ form.discount }}</td></tr>
     {% if form.discount.errors %}<tr><td class="error" colspan="2">*** {{ form.discount.errors|join:", " }}</td></tr>{% endif %}
 {% endif %}
-{% if sale %}{% include "product/sale_details.html" %}{% endif %}
+{% if storewide_sale %}{% include "product/sale_details.html" %}{% endif %}
 
 	<tr><td></td><td><input type="submit" value="{% trans "Continue Checkout" %}"/></td></tr>
 </table>

@@ -1,8 +1,6 @@
 from decimal import Decimal
-from livesettings import config_get
 from livesettings import config_get_group
-from payment import active_gateways
-from satchmo_store.shop.models import Order, OrderItem, OrderItemDetail
+from satchmo_store.shop.models import Order, OrderItem, OrderItemDetail, OrderCart
 from satchmo_store.shop.signals import satchmo_post_copy_item_to_order
 from shipping.utils import update_shipping
 import logging
@@ -21,6 +19,7 @@ def get_or_create_order(request, working_cart, contact, data):
     the working_cart, contact and data"""
     shipping = data.get('shipping', None)
     discount = data.get('discount', None)
+    notes = data.get('notes', None)
 
     try:
         order = Order.objects.from_request(request)
@@ -42,15 +41,9 @@ def get_or_create_order(request, working_cart, contact, data):
         order = Order(contact=contact)
 
     pay_ship_save(order, working_cart, contact,
-        shipping=shipping, discount=discount, update=update)
+        shipping=shipping, discount=discount, notes=notes, update=update)
     request.session['orderID'] = order.id
     return order
-
-def get_gateway_by_settings(gateway_settings, settings={}):
-    log.debug('getting gateway by settings: %s', gateway_settings.key)
-    processor_module = gateway_settings.MODULE.load_module('processor')
-    gateway_settings = get_gateway_settings(gateway_settings, settings=settings)
-    return processor_module.PaymentProcessor(settings=gateway_settings)
 
 def get_processor_by_key(key):
     """
@@ -62,7 +55,7 @@ def get_processor_by_key(key):
     processor_module = payment_module.MODULE.load_module('processor')
     return processor_module.PaymentProcessor(payment_module)
 
-def pay_ship_save(new_order, cart, contact, shipping, discount, update=False):
+def pay_ship_save(new_order, cart, contact, shipping, discount, notes, update=False):
     """
     Save the order details, first removing all items if this is an update.
     """
@@ -80,7 +73,8 @@ def pay_ship_save(new_order, cart, contact, shipping, discount, update=False):
         new_order.discount_code = discount
     else:
         new_order.discount_code = ""
-
+    if notes:
+        new_order.notes = notes
     update_orderitems(new_order, cart, update=update)
 
 def update_orderitem_details(new_order_item, item):
@@ -131,30 +125,31 @@ def update_orderitems(new_order, cart, update=False):
     """Update the order with all cart items, first removing all items if this
     is an update.
     """
-    if update:
-        new_order.remove_all_items()
-    else:
-        # have to save first, or else we can't add orderitems
-        new_order.site = cart.site
-        new_order.save()
+    if not isinstance(cart, OrderCart):
+        if update:
+            new_order.remove_all_items()
+        else:
+            # have to save first, or else we can't add orderitems
+            new_order.site = cart.site
+            new_order.save()
 
-    # Add all the items in the cart to the order
-    for item in cart.cartitem_set.all():
-        new_order_item = OrderItem(order=new_order,
-            product=item.product,
-            quantity=item.quantity,
-            unit_price=item.unit_price,
-            line_item_price=item.line_total)
+        # Add all the items in the cart to the order
+        for item in cart.cartitem_set.all():
+            new_order_item = OrderItem(order=new_order,
+                product=item.product,
+                quantity=item.quantity,
+                unit_price=item.unit_price,
+                line_item_price=item.line_total)
 
-        update_orderitem_for_subscription(new_order_item, item)
-        update_orderitem_details(new_order_item, item)
+            update_orderitem_for_subscription(new_order_item, item)
+            update_orderitem_details(new_order_item, item)
 
-        # Send a signal after copying items
-        # External applications can copy their related objects using this
-        satchmo_post_copy_item_to_order.send(
-                cart,
-                cartitem=item,
-                order=new_order, orderitem=new_order_item
-                )
+            # Send a signal after copying items
+            # External applications can copy their related objects using this
+            satchmo_post_copy_item_to_order.send(
+                    cart,
+                    cartitem=item,
+                    order=new_order, orderitem=new_order_item
+                    )
 
     new_order.recalculate_total()

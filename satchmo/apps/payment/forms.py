@@ -161,11 +161,11 @@ class CustomChargeForm(forms.Form):
         form_initialdata.send('CustomChargeForm', form=self, initial=initial)
         kwargs['initial'] = initial
         super(CustomChargeForm, self).__init__(*args, **kwargs)
-        form_init.send(self.__class__, form=self)
+        form_init.send(CustomChargeForm, form=self)
 
     def clean(self, *args, **kwargs):
         super(CustomChargeForm, self).clean(*args, **kwargs)
-        form_validate.send(self.__class__, form=self)
+        form_validate.send(CustomChargeForm, form=self)
         return self.cleaned_data
 
 class PaymentMethodForm(ProxyContactForm):
@@ -190,10 +190,12 @@ class PaymentMethodForm(ProxyContactForm):
                 order=order,
                 contact=self._contact
                 )
+        if self.fields['paymentmethod'].initial == None:
+            self.fields['paymentmethod'].initial = payment_choices[0][0]
         if len(payment_choices) == 1:
-            self.fields['paymentmethod'].widget = forms.HiddenInput(attrs={'value' : payment_choices[0][0]})
+            self.fields['paymentmethod'].widget = forms.HiddenInput()
         else:
-            self.fields['paymentmethod'].widget = forms.RadioSelect(attrs={'value' : payment_choices[0][0]})
+            self.fields['paymentmethod'].widget = forms.RadioSelect()
         self.fields['paymentmethod'].choices = payment_choices
 
     def clean(self):
@@ -231,12 +233,15 @@ class PaymentContactInfoForm(PaymentMethodForm, ContactInfoForm):
             form_init.send(PaymentContactInfoForm, form=self)
 
         def save(self, request, *args, **kwargs):
-            contactid = super(PaymentContactInfoForm, self).save(*args, **kwargs)
             form_presave.send(PaymentContactInfoForm, form=self)
+            contactid = super(PaymentContactInfoForm, self).save(*args, **kwargs)
             contact = Contact.objects.get(pk=contactid)
             cart = kwargs.get('cart', None)
             if not cart:
                 cart = Cart.objects.from_request(request)
+            if not cart.customer:
+                cart.customer = contact
+                cart.save()
             self.order = get_or_create_order(request, cart, contact, self.cleaned_data)
             form_postsave.send(PaymentContactInfoForm, form=self)
             return contactid
@@ -333,11 +338,17 @@ class SimplePayShipForm(forms.Form):
                         shipping_dict = {cheapshipping: shipping_dict[cheapshipping]}
             except Discount.DoesNotExist:
                 pass
-
-        # possibly hide the shipping
+        
+        # possibly hide the shipping based on store config
         shiphide = config_value('SHIPPING','HIDING')
-
-        if shiphide in ('YES', 'DESCRIPTION') and len(shipping_choices) == 1:
+        # Handle a partial payment and make sure we don't show a shipping choice after one has
+        # already been chosen
+        if self.order and self.order.is_partially_paid and shipping_dict.get(self.order.shipping_model, False):
+            self.fields['shipping'] = forms.CharField(max_length=30, initial=self.order.shipping_model,
+                widget=forms.HiddenInput(attrs={'value' : shipping_choices[0][0]}))
+            self.shipping_hidden = True
+        # Possibly hide if there is only 1 choise
+        elif shiphide in ('YES', 'DESCRIPTION') and len(shipping_choices) == 1:
             self.fields['shipping'] = forms.CharField(max_length=30, initial=shipping_choices[0][0],
                 widget=forms.HiddenInput(attrs={'value' : shipping_choices[0][0]}))
             if shiphide == 'DESCRIPTION':
@@ -354,9 +365,8 @@ class SimplePayShipForm(forms.Form):
                 if cheapshipping is not None:
                     self.fields['shipping'].initial = cheapshipping
             self.shipping_hidden = False
-
+                
         self.shipping_dict = shipping_dict
-
         form_init.send(SimplePayShipForm, form=self)
 
     def clean_shipping(self):
@@ -473,7 +483,7 @@ class CreditPayShipForm(SimplePayShipForm):
                     log.debug('Payment module capture/release success for %s', self.order)
             else:
                 log.debug('Payment module %s cannot do credit authorizations, ignoring AUTH_EARLY setting.',
-                    self.paymentmodule.MODULE.KEY.value)
+                    self.paymentmodule.MODULE.value)
         return data
 
 

@@ -11,20 +11,21 @@ log = logging.getLogger('tax.templatetags')
 register = template.Library()
 
 def _get_taxprocessor(request=None):
-    taxprocessor = get_thread_variable('taxer', None)
-    if not taxprocessor:
-        if request:            
-            user = request.user
-            if user.is_authenticated():
-                user = user
-            else:
-                user = None
+    if request:
+        user = request.user
+        if user.is_authenticated():
+            user_id = user.id
         else:
-            user = get_current_user()
-
+            user = None
+            user_id = "None"
+    else:
+        user = get_current_user()
+        user_id = user and user.id
+    thread_key = "taxer-%s" % user_id
+    taxprocessor = get_thread_variable(thread_key, None)
+    if not taxprocessor:
         taxprocessor = get_tax_processor(user=user)    
-        set_thread_variable('taxer', taxprocessor)
-        
+        set_thread_variable(thread_key, taxprocessor)
     return taxprocessor
 
 class CartitemLineTaxedTotalNode(template.Node):
@@ -113,11 +114,7 @@ class TaxRateNode(template.Node):
         if self.digits == 0:
             q = Decimal('0')
         else:
-            if self.digits == 1:
-                s = "0.1"
-            else:
-                s = "0." + "0" * self.digits-1 + "1"
-            q = Decimal(s)
+            q = Decimal('0.1') ** self.digits
         return pcnt.quantize(q)
 
 def tax_rate(parser, token):

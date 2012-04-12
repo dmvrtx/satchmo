@@ -24,6 +24,9 @@ from payment.views import payship
 from satchmo_store.shop.models import Order, Cart
 from satchmo_store.shop.satchmo_settings import get_satchmo_setting
 from satchmo_utils.dynamic import lookup_url, lookup_template
+from django.views.decorators.csrf import csrf_exempt  
+from satchmo_utils.views import bad_or_missing
+
 import logging
 try:
     from hashlib import sha1
@@ -98,18 +101,6 @@ def confirm_info(request):
     xchg_order_id = "%07dT%02d%02d" % (order.id, now.minute, now.second)
 
     amount = "%d" % (order.balance * 100,)    # in cents
-    signature_data = ''.join(
-            map(str, (
-                    amount,
-                    xchg_order_id,
-                    payment_module.MERCHANT_FUC.value,
-                    payment_module.MERCHANT_CURRENCY.value,
-                    signature_code,
-                    )
-               )
-            )
-
-    signature = sha1(signature_data).hexdigest()
 
     template = lookup_template(payment_module, 'shop/checkout/sermepa/confirm.html')
 
@@ -117,6 +108,32 @@ def confirm_info(request):
     url_ok = _resolve_local_url(payment_module, payment_module.MERCHANT_URL_OK)
     url_ko = _resolve_local_url(payment_module, payment_module.MERCHANT_URL_KO)
 
+    if payment_module.EXTENDED_SIGNATURE.value:
+        signature_data = ''.join(
+                map(str, (
+                        amount,
+                        xchg_order_id,
+                        payment_module.MERCHANT_FUC.value,
+                        payment_module.MERCHANT_CURRENCY.value,
+                        "0", #TransactionType
+                        url_callback,
+                        signature_code,
+                        )
+                   )
+                )
+    else:
+        signature_data = ''.join(
+                map(str, (
+                        amount,
+                        xchg_order_id,
+                        payment_module.MERCHANT_FUC.value,
+                        payment_module.MERCHANT_CURRENCY.value,
+                        signature_code,
+                        )
+                   )
+                )
+
+    signature = sha1(signature_data).hexdigest()
     ctx = {
         'live': live,
         'post_url': post_url,
@@ -136,6 +153,7 @@ def confirm_info(request):
     return render_to_response(template, ctx, context_instance=RequestContext(request))
 confirm_info = never_cache(confirm_info)
 
+@csrf_exempt
 def notify_callback(request):
     payment_module = config_get_group('PAYMENT_SERMEPA')
     if payment_module.LIVE.value:
@@ -198,3 +216,38 @@ def notify_callback(request):
     for cart in Cart.objects.filter(customer=order.contact):
         cart.empty()
     return HttpResponse()
+    
+
+def success(request):
+    """
+    The order has been succesfully processed.
+    We clear out the cart but let the payment processing get called by IPN
+    """
+    try:
+        order = Order.objects.from_request(request)
+    except Order.DoesNotExist:
+        return bad_or_missing(request, _('Your order has already been processed.'))
+
+    # Added to track total sold for each product
+    for item in order.orderitem_set.all():
+        product = item.product
+        product.total_sold += item.quantity
+        product.items_in_stock -= item.quantity
+        product.save()
+
+    log.warning(_('The contact is %s') % order.contact)
+    # Clean up cart now, the rest of the order will be cleaned on paypal IPN
+    for cart in Cart.objects.filter(customer=order.contact):
+        log.warning(_('Processing cart item %s') % cart.pk)
+        cart.empty()
+
+    del request.session['orderID']
+    log.warning(request.session)
+    context = RequestContext(request, {'order': order})
+    return render_to_response('shop/checkout/success.html', context)
+
+success = never_cache(success)
+
+
+
+

@@ -4,12 +4,15 @@ from django.core.urlresolvers import reverse as url
 from django.test import TestCase
 from django.test.client import Client
 from django.utils.encoding import smart_str
+from django.utils.translation import get_language
+from django.contrib.sites.models import Site
 from keyedcache import cache_delete
 from l10n.models import Country
 from l10n.utils import moneyfmt
 from product.utils import rebuild_pricing
 from satchmo_store.shop.satchmo_settings import get_satchmo_setting
 from satchmo_store.shop.tests import get_step1_post_data
+from django.core.cache import cache
 
 domain = 'http://example.com'
 prefix = get_satchmo_setting('SHOP_BASE')
@@ -24,6 +27,9 @@ class ShopTest(TestCase):
         cache_delete()
         self.client = Client()
         self.US = Country.objects.get(iso2_code__iexact = "US")
+        current_site = Site.objects.get_current()
+        cache_key = "cat-%s-%s" % (current_site.id, get_language())
+        cache.delete(cache_key)
         rebuild_pricing()
 
     def tearDown(self):
@@ -49,7 +55,7 @@ class ShopTest(TestCase):
         response = self.client.get(prefix+'/cart/')
         self.assertContains(response, '/satchmo-computer/">satchmo computer', count=1, status_code=200)
         amount = smart_str(moneyfmt(Decimal('168.00')))
-        self.assertContains(response, amount, count=3)
+        self.assertContains(response, amount, count=4)
 
         amount = smart_str('Monogram: CBM  ' + moneyfmt(Decimal('10.00')))
         self.assertContains(response, amount, count=1)
@@ -67,7 +73,7 @@ class ShopTest(TestCase):
             'credit_type': 'Visa',
             'credit_number': '4485079141095836',
             'month_expires': '1',
-            'year_expires': '2012',
+            'year_expires': '2015',
             'ccv': '552',
             'shipping': 'FlatRate'}
         response = self.client.post(url('DUMMY_satchmo_checkout-step2'), data)

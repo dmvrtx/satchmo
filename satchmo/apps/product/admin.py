@@ -2,6 +2,7 @@ from django.contrib import admin
 from django.forms import models, ValidationError
 from django.utils.translation import ugettext_lazy as _
 from l10n.l10n_settings import get_l10n_setting
+from l10n.utils import moneyfmt
 from livesettings import config_value
 from product.models import Category, CategoryTranslation, CategoryImage, CategoryImageTranslation, \
                                    OptionGroup, OptionGroupTranslation, Option, OptionTranslation, Product, \
@@ -9,7 +10,7 @@ from product.models import Category, CategoryTranslation, CategoryImage, Categor
                                    Price, ProductImage, ProductImageTranslation, default_weight_unit, \
                                    default_dimension_unit, ProductTranslation, Discount, TaxClass, AttributeOption, \
                                    CategoryAttribute
-from product.utils import validate_attribute_value
+from product.utils import import_validator, validate_attribute_value
 from satchmo_utils.thumbnail.field import ImageWithThumbnailField
 from satchmo_utils.thumbnail.widgets import AdminImageWithThumbnailWidget
 from django.http import HttpResponseRedirect
@@ -39,10 +40,20 @@ class CategoryImageTranslation_Inline(admin.StackedInline):
     model = CategoryImageTranslation
     extra = 1
 
+class DiscountForm(models.ModelForm):
+    def clean(self):
+        cleaned_data = self.cleaned_data
+        automatic = cleaned_data.get("automatic")
+        amount = cleaned_data.get("amount")
+        if (automatic and amount):
+            raise ValidationError(_("Automatic discounts may only be percentages"))
+        return cleaned_data
+
 class DiscountOptions(admin.ModelAdmin):
     list_display=('site', 'description','active')
     list_display_links = ('description',)
     raw_id_fields = ('valid_products',)
+    form = DiscountForm
 
 class OptionGroupTranslation_Inline(admin.StackedInline):
     model = OptionGroupTranslation
@@ -61,9 +72,9 @@ class AttributeOptionForm(models.ModelForm):
     def clean_validation(self):
         validation = self.cleaned_data['validation']
         try:
-            re.compile(validation)
-        except:
-            raise ValidationError(_("Invalid regular expression"))
+            import_validator(validation)
+        except ImportError:
+            raise ValidationError(_("Invalid validation function specifed!"))
         return validation
 
 
@@ -114,8 +125,8 @@ class CategoryAttributeInline(admin.TabularInline):
 class CategoryAdminForm(models.ModelForm):
 
     def clean_parent(self):
-        parent = self.cleaned_data['parent']
-        slug = self.cleaned_data['slug']
+        parent = self.cleaned_data.get('parent', None)
+        slug = self.cleaned_data.get('slug', None)
         if parent and slug:
             if parent.slug == slug:
                 raise ValidationError(_("You must not save a category in itself!"))
@@ -213,12 +224,26 @@ class ProductOptions(admin.ModelAdmin):
         return HttpResponseRedirect('')
     make_unfeatured.short_description = _("Mark selected products as not featured")
 
+    def formatted_price(self, obj):
+        """Format the price in the list_display so that the currency symbol shows
+        """
+        return moneyfmt(obj.unit_price)
+    formatted_price.short_description = _("Unit price")
+
+    def formatted_inventory(self, obj):
+        """Format the inventory in the list_display so that 1.00000 becomes 1
+        but 1.0002 still shows as 1.0002
+        """
+        return obj.items_in_stock.normalize()
+    formatted_inventory.short_description = _("Number in stock")
+    formatted_inventory.admin_order_field = "items_in_stock"
+
     if config_value('SHOP','SHOW_SITE'):
         list_display = ('site',)
     else:
         list_display = ()
 
-    list_display += ('slug', 'name', 'unit_price', 'items_in_stock', 'active','featured', 'get_subtypes')
+    list_display += ('slug', 'name', 'formatted_price', 'formatted_inventory', 'active','featured', 'get_subtypes')
     list_display_links = ('slug', 'name')
     list_filter = ('category', 'date_added','active','featured')
     actions = ('make_active', 'make_inactive', 'make_featured', 'make_unfeatured')

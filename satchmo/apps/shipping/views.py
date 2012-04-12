@@ -29,7 +29,8 @@ def displayDoc(request, id, doc):
     else:
         return HttpResponseRedirect('/admin')
     response = HttpResponse(mimetype='application/pdf')
-    response['Content-Disposition'] = 'attachment; filename=%s' % filename
+    if config_value('SHIPPING','DOWNLOAD_PDFS'):
+        response['Content-Disposition'] = 'attachment; filename=%s' % filename
     icon_uri = config_value('SHOP', 'LOGO_URI')
     t = loader.get_template(os.path.join('shop/pdf', template))
     c = Context({
@@ -37,6 +38,7 @@ def displayDoc(request, id, doc):
                 'iconURI' : icon_uri,
                 'shopDetails' : shopDetails,
                 'order' : order,
+                'default_view_tax': config_value('TAX','DEFAULT_VIEW_TAX')
                 })
     pdf = trml2pdf.parseString(smart_str(t.render(c)))
     response.write(pdf)

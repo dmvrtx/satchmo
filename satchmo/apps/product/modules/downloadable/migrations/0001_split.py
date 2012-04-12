@@ -4,9 +4,42 @@ from south.v2 import SchemaMigration
 
 class Migration(SchemaMigration):
 
+    depends_on = (
+        ('product', '0010_add_discountable_categories'),
+    )
+
+    needed_by = (
+        ('product', '0011_split_products'),
+    )
+
     def forwards(self, orm):
         db.rename_table('product_downloadableproduct', 'downloadable_downloadableproduct')
-        db.rename_table('shop_downloadlink', 'downloadable_downloadlink')
+
+        # check if the table exists; might be a fresh, post 0.9 installation
+        try:
+            from django.db import connection
+            cursor = connection.cursor()
+            if not cursor:
+                raise Exception
+            table_names = connection.introspection.get_table_list(cursor)
+        except:
+            raise Exception("unable to determine if the table 'shop_downloadlink' exists")
+        else:
+            if not 'shop_downloadlink' in table_names:
+                # create the table
+                # create commands were obtained from a fresh --initial migration
+                db.create_table('downloadable_downloadlink', (
+                    ('id', self.gf('django.db.models.fields.AutoField')(primary_key=True)),
+                    ('downloadable_product', self.gf('django.db.models.fields.related.ForeignKey')(to=orm['downloadable.DownloadableProduct'])),
+                    ('order', self.gf('django.db.models.fields.related.ForeignKey')(to=orm['shop.Order'])),
+                    ('key', self.gf('django.db.models.fields.CharField')(max_length=40)),
+                    ('num_attempts', self.gf('django.db.models.fields.IntegerField')()),
+                    ('time_stamp', self.gf('django.db.models.fields.DateTimeField')()),
+                    ('active', self.gf('django.db.models.fields.BooleanField')(default=True)),
+                ))
+                db.send_create_signal('downloadable', ['DownloadLink'])
+            else:
+                db.rename_table('shop_downloadlink', 'downloadable_downloadlink')
 
     def backwards(self, orm):
         db.rename_table('downloadable_downloadableproduct', 'product_downloadableproduct')
@@ -181,7 +214,7 @@ class Migration(SchemaMigration):
             'shipping_description': ('django.db.models.fields.CharField', [], {'max_length': '50', 'null': 'True', 'blank': 'True'}),
             'shipping_discount': ('satchmo_utils.fields.CurrencyField', [], {'null': 'True', 'max_digits': '18', 'decimal_places': '10', 'blank': 'True'}),
             'shipping_method': ('django.db.models.fields.CharField', [], {'max_length': '50', 'null': 'True', 'blank': 'True'}),
-            'shipping_model': ('shipping.fields.ShippingChoiceCharField', [], {'max_length': '30', 'null': 'True', 'blank': 'True'}),
+            'shipping_model': ('django.db.models.fields.CharField', [], {'max_length': '30', 'null': 'True', 'blank': 'True'}),
             'site': ('django.db.models.fields.related.ForeignKey', [], {'to': "orm['sites.Site']"}),
             'status': ('django.db.models.fields.CharField', [], {'max_length': '20', 'blank': 'True'}),
             'sub_total': ('satchmo_utils.fields.CurrencyField', [], {'display_decimal': '4', 'null': 'True', 'max_digits': '18', 'decimal_places': '10', 'blank': 'True'}),

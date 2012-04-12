@@ -63,7 +63,6 @@ def _login(request, redirect_to, auth_form=EmailAuthenticationForm):
     - success
     - redirect (success) or form (on failure)
     """
-
     if request.method == 'POST':
         form = auth_form(data=request.POST)
         if form.is_valid():
@@ -71,6 +70,8 @@ def _login(request, redirect_to, auth_form=EmailAuthenticationForm):
             if not redirect_to or '//' in redirect_to or ' ' in redirect_to:
                 redirect_to = settings.LOGIN_REDIRECT_URL
             login(request, form.get_user())
+            # Now that we've logged in, assign this cart to our user
+            _assign_cart(request)
             if config_value('SHOP','PERSISTENT_CART'):
                 _get_prev_cart(request)
             return (True, HttpResponseRedirect(redirect_to))
@@ -81,21 +82,46 @@ def _login(request, redirect_to, auth_form=EmailAuthenticationForm):
 
     return (False, form)
 
+def _assign_cart(request):
+    """
+    If there is a current cart and it is unassigned, assign it to this user.
+    """
+    try:
+        if 'cart' in request.session:
+            existing_cart = Cart.objects.from_request(request, create=False)
+            contact = Contact.objects.from_request(request)
+            if existing_cart.customer == None:
+                # No currently assigned contact: Up for grabs!
+                log.debug("Assigning Cart (id: %r) to %r (id: %r)" % (existing_cart.id, contact.full_name, contact.id))
+                existing_cart.customer = contact
+                existing_cart.save()
+        else:
+            log.debug("The user has no cart in the current session.")
+    except:
+        log.debug("Unable to assign cart user during login")
+
 def _get_prev_cart(request):
     try:
         contact = Contact.objects.from_request(request)
+        if not contact:
+            return None
         saved_cart = contact.cart_set.latest('date_time_created')
         # If the latest cart has len == 0, cart is unusable.
-        if len(saved_cart) and 'cart' in request.session:
-            # Merge the two carts together
-            existing_cart = Cart.objects.from_request(request, create=False)
-            saved_cart.merge_carts(existing_cart)
-        request.session['cart'] = saved_cart.id
-    except Exception, e:
-        pass
+        if saved_cart and len(saved_cart):
+            if 'cart' in request.session:
+                existing_cart = Cart.objects.from_request(request, create=False)
+                if ( (len(existing_cart) == 0) or config_value('SHOP','PERSISTENT_CART_MERGE') ):
+                    # Merge the two carts together
+                    saved_cart.merge_carts(existing_cart)
 
+            request.session['cart'] = saved_cart.id
+            log.debug('retrieved cart: %s', saved_cart)
+            return saved_cart
 
-def register_handle_address_form(request, redirect=None):
+    except Exception:
+        return None
+
+def register_handle_address_form(request, redirect=None, action_required=''):
     """
     Handle all registration logic.  This is broken out from "register" to allow easy overriding/hooks
     such as a combined login/register page.
@@ -114,16 +140,18 @@ def register_handle_address_form(request, redirect=None):
     except Contact.DoesNotExist:
         contact = None
 
-    if request.method == 'POST':
+    if request.method == 'POST' and request.POST.get('action', '') == action_required:
 
         form = RegistrationAddressForm(request.POST, shop=shop, contact=contact)
 
         if form.is_valid():
-            contact = form.save(request)
+            contact = form.save(request, force_new=True)
 
             if not redirect:
                 redirect = urlresolvers.reverse('registration_complete')
             return (True, HttpResponseRedirect(redirect))
+        else:
+            log.debug("createform errors: %s", form.errors)
 
     else:
         initial_data = {}
@@ -215,10 +243,14 @@ def activate(request, activation_key):
         # ...but we cannot authenticate without password... so we work-around authentication
         account.backend = settings.AUTHENTICATION_BACKENDS[0]
         _login(request, account)
-        contact = Contact.objects.get(user=account)
-        request.session[CUSTOMER_ID] = contact.id
-        send_welcome_email(contact.email, contact.first_name, contact.last_name)
-        signals.satchmo_registration_verified.send(contact, contact=contact)
+        try:
+            contact = Contact.objects.get(user=account)
+            request.session[CUSTOMER_ID] = contact.id
+            send_welcome_email(contact.email, contact.first_name, contact.last_name)
+            signals.satchmo_registration_verified.send(contact, contact=contact)
+        except Contact.DoesNotExist:
+            # Treated for better compatibility with registation tests without error
+            pass
 
     context = RequestContext(request, {
         'account': account,
@@ -228,10 +260,14 @@ def activate(request, activation_key):
                               context_instance=context)
 
 
-def login_signup(request, template_name="contact/login_signup.html", registration_handler=register_handle_form):
+def login_signup(request,
+                 template_name="contact/login_signup.html",
+                 registration_handler=register_handle_form,
+                 handler_kwargs = {}):
     """Display/handle a combined login and create account form"""
 
     redirect_to = request.REQUEST.get(REDIRECT_FIELD_NAME, '')
+    handler_kwargs['redirect'] = redirect_to
 
     loginform = None
     createform = None
@@ -241,7 +277,7 @@ def login_signup(request, template_name="contact/login_signup.html", registratio
         action = request.POST.get('action', 'login')
         if action == 'create':
             #log.debug('Signup form')
-            ret = registration_handler(request, redirect=redirect_to)
+            ret = registration_handler(request, **handler_kwargs)
             success = ret[0]
             todo = ret[1]
             if len(ret) > 2:
@@ -278,7 +314,7 @@ def login_signup(request, template_name="contact/login_signup.html", registratio
     if not loginform:
         success, loginform = _login(request, redirect_to)
     if not createform:
-        ret = registration_handler(request, redirect_to)
+        ret = registration_handler(request, **handler_kwargs)
         success = ret[0]
         createform = ret[1]
         if len(ret) > 2:
@@ -312,7 +348,10 @@ def login_signup_address(request, template_name="contact/login_signup_address.ht
     """
     View which allows a user to login or else fill out a full address form.
     """
-    return login_signup(request, template_name=template_name, registration_handler=register_handle_address_form)
+    return login_signup(request,
+                        template_name=template_name,
+                        registration_handler=register_handle_address_form,
+                        handler_kwargs={'action_required' : 'create'})
 
 
 def register(request, redirect=None, template='registration/registration_form.html'):
@@ -339,7 +378,8 @@ def register(request, redirect=None, template='registration/registration_form.ht
         ctx = {
             'form': todo,
             'title' : _('Registration Form'),
-            'show_newsletter' : show_newsletter
+            'show_newsletter' : show_newsletter,
+            'allow_nickname' : config_value('SHOP', 'ALLOW_NICKNAME_USERNAME')
         }
 
         if extra_context:

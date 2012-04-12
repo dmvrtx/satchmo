@@ -1,4 +1,4 @@
-{% if shop.options.SHOP.ENFORCE_STATE %}
+{% if shop.options.SHOP.ENFORCE_STATE.value %}
 <script type="text/javascript">
 /**
  * Populates state fields when the user selects a country.
@@ -70,7 +70,7 @@ jQuery(document).ready(function($) {
 			state_callback: prefix+"state_load",
 			other_state: $(":input[name="+other_prefix+"state]"),
 			other_state_callback: other_prefix+"state_load",
-			data_key: prefix+"country",
+			data_key: prefix+"country"
 		};
 
 		/* Provide default loading handlers. */
@@ -95,5 +95,33 @@ jQuery(document).ready(function($) {
 		init_for_prefix(field_prefixes[i]);
 	}
 });
+
+/**
+* Required for Django's CSRF protection when using AJAX
+* Taken from here - http://docs.djangoproject.com/en/dev/ref/contrib/csrf/
+ */
+
+$('html').ajaxSend(function(event, xhr, settings) {
+    function getCookie(name) {
+        var cookieValue = null;
+        if (document.cookie && document.cookie != '') {
+            var cookies = document.cookie.split(';');
+            for (var i = 0; i < cookies.length; i++) {
+                var cookie = jQuery.trim(cookies[i]);
+                // Does this cookie string begin with the name we want?
+                if (cookie.substring(0, name.length + 1) == (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+    if (!(/^http:.*/.test(settings.url) || /^https:.*/.test(settings.url))) {
+        // Only send the token to relative URLs i.e. locally.
+        xhr.setRequestHeader("X-CSRFToken", getCookie('csrftoken'));
+    }
+});
+
 </script>
 {% endif %}

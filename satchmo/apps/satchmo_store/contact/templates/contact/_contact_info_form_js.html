@@ -1,18 +1,10 @@
 <script type="text/javascript">
-var satchmo = satchmo || {};{% comment %}
-#
-# Code that require shipping fields to be present.
-#
-# Presently, we assume that shipping fields are always present, unless the cart
-# is not shippable. This seems to hold true across both checkout and user
-# account use-cases.
-#
-{% endcomment %}{% if cart and cart.is_shippable %}
+var satchmo = satchmo || {};
 
 satchmo.ship_form_toggler = function(state) {
     var inputs = $('tr.shiprow input');
     inputs.attr('disabled', state);
-    var selects = $('tr.shiprow select')
+    var selects = $('tr.shiprow select');
     selects.attr('disabled', state);
     var rows = $('tr.shiprow');
     if (state) {
@@ -31,31 +23,35 @@ satchmo.ship_form_toggler = function(state) {
 satchmo.update_ship_copy = function(elt) {
     var state = $(elt)[0].checked;
     satchmo.ship_form_toggler(state);
-}
+};
 
 $(document).ready(function() {
-    satchmo.update_ship_copy('#id_copy_address');
-    $('#id_copy_address').click(function() {
-        satchmo.update_ship_copy(this);
-    });
-    $('#id_addressee').bind("change", function() {
-         $('#id_ship_addressee').attr('value', $('#id_addressee').attr('value'));
-    });
-});{% endif %}{% comment %}
-#
-# Code that don't require shipping fields.
-#
-{% endcomment %}
+    var copy_address = $('#id_copy_address');
+
+    {# If copy address is missing, it's a cart which isn't shippable #}
+    if (copy_address.length) {
+        satchmo.update_ship_copy('#id_copy_address');
+        $('#id_copy_address').click(function() {
+            satchmo.update_ship_copy(this);
+        });
+    }
+});
 
 satchmo.name_change = function() {
     var first_name = $('#id_first_name').attr('value');
     var last_name = $('#id_last_name').attr('value');
-    if (!first_name) { first_name = ''; }
-    if (!last_name) { last_name = ''; }
-    $('#id_addressee').attr('value',  jQuery.trim(first_name + ' ' + last_name));{% if cart and cart.is_shippable %}
-
-    $('#id_ship_addressee').attr('value', $('#id_addressee').attr('value'));
-{% endif %}
+    var old_first_name = $('#id_first_name').data('old_first_name');
+    var old_last_name = $('#id_last_name').data('old_last_name');
+    var full_name = $.trim(first_name + ' ' + last_name);
+    var old_full_name = $.trim(old_first_name + ' ' + old_last_name);
+    if ($('#id_addressee').attr('value') === old_full_name) {
+    $('#id_addressee').attr('value', full_name);
+    }
+    if ($('#id_ship_addressee').attr('value') === old_full_name) {
+    $('#id_ship_addressee').attr('value', full_name);
+    }
+    $('#id_first_name').data('old_first_name', first_name);
+    $('#id_last_name').data('old_last_name', last_name);
 };
 
 $(document).ready(function() {
