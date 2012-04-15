@@ -76,6 +76,8 @@ satchmo.show_error = function(msg) {
         section.text(msg);
         if (msg == "") {
             section.hide();
+        } else {
+            section.show();
         }
     }
     var disabled = (msg != "");
@@ -90,6 +92,21 @@ satchmo.update_price = function() {
         use_sale, sale_price, full_price;
         
     if (detail) {
+
+	// look for images
+	var images_to_stay = $('#product_images').html().split('<!--break-->')[0];
+	images_to_stay = images_to_stay + '<!--break-->';
+	$('#product_images').empty();
+
+	if('ADDITIONAL_IMAGES' in detail) {
+	    for (var imgx=0; imgx<detail['ADDITIONAL_IMAGES'].length; imgx++) {
+		images_to_stay = images_to_stay + '<img src="' + satchmo.thumbnails[detail['ADDITIONAL_IMAGES'][imgx]] + '" alt="Product image"></img>';
+	    }         
+	}
+
+	$('#product_images').html(images_to_stay);
+
+
         var qty = parseInt($('#quantity').fieldValue()[0]);
         satchmo.set_name(detail['SLUG']);
         
@@ -114,7 +131,7 @@ satchmo.update_price = function() {
         satchmo.set_price(sale_price);
 
         if (qty && qty > detail['QTY']) {
-            if (detail['QTY'] == -1) {
+            if (detail['QTY'] <= 0) {
                 msg = "Sorry, we are out of stock on that combination.";
              }
              else {
