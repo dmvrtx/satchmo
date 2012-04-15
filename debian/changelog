@@ -1,0 +1,112 @@
+mbmn-gates-contactng (0.2.2) unstable; urgency=medium
+
+  * (SHOPS-4807) Отправитель перевода задаётся в константу для Контакта (r40763, suhomlinov)
+  * Поправлен postinst (r40743, suhomlinov)
+ -- Valery Suhomlinov <suhomlinov@1mps.ru>  Fri, 06 Apr 2012 12:02:10 +0400
+
+mbmn-gates-contactng (0.2.1) unstable; urgency=medium
+
+  * Подготовка билда contactng-0.2.1 (r40739, suhomlinov)
+  * Добавлена настройка времени ожидания для исходящих HTTP-сессий (r40738, suhomlinov)
+ -- Valery Suhomlinov <suhomlinov@1mps.ru>  Wed, 04 Apr 2012 12:50:26 +0400
+
+mbmn-gates-contactng (0.2.0) unstable; urgency=medium
+
+  * Подготовка билда contactng-0.2.0 (r40611, suhomlinov)
+  * Настройки перенесены в конфиг (r40609, shlomin)
+  * Подготовка билда contactng-0.2.0 (r40603, suhomlinov)
+  * oops (r40584, shlomin)
+  * Реализована отмена переводов (r40583, shlomin)
+ -- Valery Suhomlinov <suhomlinov@1mps.ru>  Mon, 19 Mar 2012 13:04:28 +0400
+
+mbmn-gates-contactng (0.1.11) unstable; urgency=medium
+
+  * Подготовка билда contactng-0.1.11 (r40575, suhomlinov)
+  * Неудачное сохранение ресурса не влияет на прохождение платежа (r40574, suhomlinov)
+ -- Valery Suhomlinov <suhomlinov@1mps.ru>  Wed, 14 Mar 2012 17:39:43 +0400
+
+mbmn-gates-contactng (0.1.10) unstable; urgency=medium
+
+  * Подготовка билда contactng-0.1.10 (r40532, suhomlinov)
+  * Добавлены поля в таблицу для отчета (r40531, shlomin)
+ -- Valery Suhomlinov <suhomlinov@1mps.ru>  Wed, 07 Mar 2012 10:19:18 +0400
+
+mbmn-gates-contactng (0.1.9) unstable; urgency=medium
+
+  * Подготовка билда contactng-0.1.9 (r40527, suhomlinov)
+  * добавлена проверка статусов платежей (r40519, shlomin)
+  * добавлены коды конечных статусов и время проверки (r40518, shlomin)
+ -- Valery Suhomlinov <suhomlinov@1mps.ru>  Tue, 06 Mar 2012 15:09:28 +0400
+
+mbmn-gates-contactng (0.1.8) unstable; urgency=medium
+
+  * Подготовка билда contactng-0.1.8 (r40259, suhomlinov)
+  * Ресурс платежа дублируется в БД и отдается при добивании (r40235, shlomin)
+  * Изменение триггеров (r40031, suhomlinov)
+ -- Valery Suhomlinov <suhomlinov@1mps.ru>  Mon, 30 Jan 2012 11:19:03 +0400
+
+mbmn-gates-contactng (0.1.7) unstable; urgency=medium
+
+  * Подготовка билда contactng-0.1.7 (r40015, suhomlinov)
+  * Выбор точки для страны осуществляется с учётом валюты (r40014, suhomlinov)
+ -- Valery Suhomlinov <suhomlinov@1mps.ru>  Wed, 14 Dec 2011 15:53:25 +0400
+
+mbmn-gates-contactng (0.1.6) unstable; urgency=medium
+
+  * Подготовка билда contactng-0.1.6 (r40004, suhomlinov)
+  * Коррекция сборки debian (r40003, suhomlinov)
+ -- Valery Suhomlinov <suhomlinov@1mps.ru>  Tue, 13 Dec 2011 17:20:32 +0400
+
+mbmn-gates-contactng (0.1.5) unstable; urgency=medium
+
+  * Подготовка билда contactng-0.1.5 (r40000, suhomlinov)
+  * Исправлены триггеры (r39999, suhomlinov)
+ -- Valery Suhomlinov <suhomlinov@1mps.ru>  Tue, 13 Dec 2011 16:45:13 +0400
+
+mbmn-gates-contactng (0.1.4) unstable; urgency=medium
+
+  * Подготовка билда contactng-0.1.4 (r39992, suhomlinov)
+  * Автопоиск точки для осуществления перевода по стране (r39984, suhomlinov)
+  * Добавлены триггеры на обновление библиотек (r39951, suhomlinov)
+ -- Valery Suhomlinov <suhomlinov@1mps.ru>  Tue, 13 Dec 2011 15:34:54 +0400
+
+mbmn-gates-contactng (0.1.3) unstable; urgency=medium
+
+  * Подготовка билда contactng-0.1.3 (r39882, suhomlinov)
+  * Обязательная выдача параметра account в ресурсе/контракте (r39881, suhomlinov)
+ -- Valery Suhomlinov <suhomlinov@1mps.ru>  Fri, 02 Dec 2011 15:06:48 +0400
+
+mbmn-gates-contactng (0.1.2) unstable; urgency=medium
+
+  * Подготовка билда contactng-0.1.2 (r39875, suhomlinov)
+  * Автоматический перезапуск демона (r39874, suhomlinov)
+  * Если есть необязательный параметр - передадим и его (r39870, suhomlinov)
+ -- Valery Suhomlinov <suhomlinov@1mps.ru>  Fri, 02 Dec 2011 12:56:30 +0400
+
+mbmn-gates-contactng (0.1.1) unstable; urgency=medium
+
+  * Подготовка билда contactng-0.1.1 (r39850, suhomlinov)
+  * Добавлена соль для различения хэшей (r39848, suhomlinov)
+  * Подготовка билда contactng-0.1.1 (r39845, suhomlinov)
+  * Сообщения в Contact передаём в windows-1251 а не в utf-8 (r39838, suhomlinov)
+  * Лишняя зависимость (r39830, suhomlinov)
+ -- Valery Suhomlinov <suhomlinov@1mps.ru>  Thu, 01 Dec 2011 17:52:46 +0400
+
+mbmn-gates-contactng (0.1.0) unstable; urgency=medium
+
+  * Подготовка билда contactng-0.1.0 (r39826, suhomlinov)
+  * Подготовка билда -0.1.0 (r39823, suhomlinov)
+  * title для region (r39262, suhomlinov)
+  * При экспорте касс у region нужен атрибут id (r39260, suhomlinov)
+  * (SHOPS-4034) Подстройка под путаницу данных о городах в Contact (r39232, suhomlinov)
+  * (SHOPS-4034) Ограничение списка стран для экспорта касс (r39228, suhomlinov)
+  * (SHOPS-4034) Выгрузка списка касс (r39227, suhomlinov)
+  * (SHOPS-4025) Проверка БИК/номера счёта (r39220, suhomlinov)
+  * Маленькие корректировки, чтобы лучше понимать параметры (r38989, suhomlinov)
+  * Исправлено получение справочника (r38928, suhomlinov)
+  * PART можно передавать только когда есть BOOK_ID (r38925, suhomlinov)
+  * Зависимость от php5-http (r38724, suhomlinov)
+  * Зависимости от модулей
+    Адаптация под python2.5 (r38509, suhomlinov)
+  * Переименование пути (r38455, suhomlinov)
+ -- Valery Suhomlinov <suhomlinov@1mps.ru>  Thu, 01 Dec 2011 11:19:31 +0400

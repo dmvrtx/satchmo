@@ -1,0 +1,14 @@
+Source: mbmn-gates-contactng
+Priority: extra
+Maintainer: Valery Sukhomlinov <suhomlinov@1mps.ru>
+Build-Depends: debhelper (>= 7.0.15), python-support, python-all-dev, cdbs (>= 0.4.49), fakeroot
+Standards-Version: 3.9.1
+Section: mbmn
+XS-Python-Version: >=2.5
+
+Package: mbmn-gates-contactng
+Section: mbmn
+Architecture: all
+Depends: ${misc:Depends}, ${python:Depends}, mbmn-daemonlib, python-twisted,
+ python-mysqldb, python-tz, php5-http, mbmn-gates-engine
+Description: Gateway to Contact NG payment system
