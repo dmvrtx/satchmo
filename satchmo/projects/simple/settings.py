@@ -1,5 +1,5 @@
 # Django settings for satchmo project.
-# If you have an existing project, then ensure that you modify local_settings-customize.py
+# If you have an existing project, then ensure that you modify local_settings.py
 # and import it from your main settings file. (from local_settings import *)
 import os
 
@@ -9,18 +9,10 @@ DJANGO_PROJECT = 'simple'
 DJANGO_SETTINGS_MODULE = 'simple.settings'
 
 ADMINS = (
-     ('', ''),
+     ('', ''),         # tuple (name, email) - important for error reports sending, if DEBUG is disabled.
 )
 
 MANAGERS = ADMINS
-
-DATABASE_ENGINE = 'mysql'           # 'postgresql', 'mysql', 'sqlite3' or 'ado_mssql'.
-# The following variables should be configured in your local_settings.py file
-#DATABASE_NAME = ''             # Or path to database file if using sqlite3.
-#DATABASE_USER = ''             # Not used with sqlite3.
-#DATABASE_PASSWORD = ''         # Not used with sqlite3.
-DATABASE_HOST = ''             # Set to empty string for localhost. Not used with sqlite3.
-DATABASE_PORT = ''             # Set to empty string for default. Not used with sqlite3.
 
 # Local time zone for this installation. All choices can be found here:
 # http://www.postgresql.org/docs/current/static/datetime-keywords.html#DATETIME-TIMEZONE-SET-TABLE
@@ -54,19 +46,20 @@ SECRET_KEY = ''
 TEMPLATE_LOADERS = (
     'django.template.loaders.filesystem.Loader',
     'django.template.loaders.app_directories.Loader',
-#     'django.template.loaders.eggs.load_template_source',
+#     'django.template.loaders.eggs.Loader',
 )
 
 MIDDLEWARE_CLASSES = (
     "django.middleware.common.CommonMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
+    "django.middleware.csrf.CsrfViewMiddleware",
     "django.middleware.locale.LocaleMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.middleware.doc.XViewMiddleware",
+    "django.contrib.messages.middleware.MessageMiddleware",
     "threaded_multihost.middleware.ThreadLocalMiddleware",
     "satchmo_store.shop.SSLMiddleware.SSLRedirect",
     #"satchmo_ext.recentlist.middleware.RecentProductMiddleware",
-    #'djangologging.middleware.LoggingMiddleware',
     #'debug_toolbar.middleware.DebugToolbarMiddleware',
 )
 
@@ -75,7 +68,7 @@ MIDDLEWARE_CLASSES = (
 # NOTE: If you enable the recent_products context_processor, you MUST have the
 # 'satchmo_ext.recentlist' app installed.
 TEMPLATE_CONTEXT_PROCESSORS = ('satchmo_store.shop.context_processors.settings',
-                               'django.core.context_processors.auth',
+                               'django.contrib.auth.context_processors.auth',
                                #'satchmo_ext.recentlist.context_processors.recent_products',
                                )
 
@@ -109,7 +102,7 @@ INSTALLED_APPS = (
     #'shipping.modules.tiered',
     #'satchmo_ext.newsletter',
     #'satchmo_ext.recentlist',
-    #'testimonials',
+    #'testimonials',         # dependency on  http://www.assembla.com/spaces/django-testimonials/
     'product',
     'product.modules.configurable',
     #'product.modules.custom',
@@ -127,9 +120,9 @@ INSTALLED_APPS = (
     'satchmo_ext.satchmo_toolbar',
     'satchmo_utils',
     #'shipping.modules.tieredquantity',
-    #'django_extensions',
+    #'django_extensions',    # dependency on  https://github.com/django-extensions/django-extensions/
     #'satchmo_ext.tieredpricing',
-    #'typogrify',
+    #'typogrify',            # dependency on  http://code.google.com/p/typogrify/
     #'debug_toolbar',
     'app_plugins',
     'simple.localsite',
