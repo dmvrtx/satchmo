@@ -2,9 +2,9 @@
 #
 PYTHON=`which python`
 DESTDIR=/
-BUILDIR=$(CURDIR)/debian/mbmn-gates-contactng
-PROJECT=mbmn-gates-contactng
-VERSION=0.2.2
+BUILDIR=$(CURDIR)/debian/python-satchmo
+PROJECT=python-satchmo
+VERSION=0.9.2
 
 all:
 	@echo "make source - Create source package"
