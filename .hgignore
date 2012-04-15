@@ -1,5 +1,6 @@
 syntax: glob
 build
+.DS_Store
 .build
 .project
 .pydevproject
@@ -21,3 +22,6 @@ build
 *_85x85_*
 *_84x84_*
 \#*\#
+.*.sw?
+*.egg
+.git
