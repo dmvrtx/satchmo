@@ -214,6 +214,10 @@ choose a default zone for each carrier. Each zone can have a number of cart weig
 price and handling fee. This means that at checkout the shipping price is based on the shipping country
 and the total weight of the cart.
 
+NOTE: the weight value of the Weight Tier part of the Zone object is called
+"Min Weight", but each tier is used for carts that weight at MOST that amount.
+This means this is the MAXIMUM weight that will be handled by that price.
+
 .. _shipping_tieredquantity:
 
 Tiered Quantity
@@ -292,11 +296,18 @@ Fedex
 
 To enable, see `Enabling Modules`_.
 
-The Fedex module allows Satchmo to calculate shipping costs using the Fedex Web Services interface.
+The Fedex module allows Satchmo to calculate shipping costs using the Fedex Web Services interface. The Fedex module
+has two additional dependencies:
+
+    1. `python-fedex <http://code.google.com/p/python-fedex/>`_
+    2. `suds <https://fedorahosted.org/suds/>`_
+    
+.. warning::
+   The Fedex module will not work correctly without these modules installed on your system.
 
 One important note to consider is that each product MUST have a weight of at least .1 pounds for Fedex to give a valid response.
-If you have a configurable product you will need to set weights on each product option. Otherwise you will get errors when the
-FedEx module tries to calculate the weight to send to FedEx for the quote.
+Therefore, there is a setting in the Fedex module to allow you to set a minimum weight that will be used if the individual
+products do not have weights.
 
 Once you've got the module installed its time to get your account set up with FedEx. (It does not work without the following steps)
 
@@ -350,6 +361,8 @@ Prerequisites
 
   - You must have a merchant id assigned by Canada Post to  use the module in production environment. Visit
     http://www.canadapost.ca/business/default-e.asp for more information.
+    
+  - You must fill out the "Home > Shop > Store Configurations" information and most specifically the postal/zip code.
 
 Notes
 

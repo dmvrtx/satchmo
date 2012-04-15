@@ -5,6 +5,20 @@ Satchmo currently has support for several different payment modules.  This
 document will discuss some of the particular configuration items to keep in
 mind for each module.
 
+There are 3 primary types of payment modules in Satchmo:
+    
+    1. Modules based on views not asking for credit card number on the merchant site:
+
+        Google Checkout, PayPal, Sermepa.
+
+    2. Modules that collect and process a card number:
+        
+        Authorize.net Cybersource.net, Sage Pay, TrustCommerce.
+
+    3. Modules which are not typical payment gateways:
+        
+        Auto success, COD (cash on delivery), dummy, gift certificate, purchase order.
+
 .. index:: Authorize.net
 
 Authorize.net
@@ -48,6 +62,9 @@ credentials you need to configure this module.
 
 PayPal
 ------
+
+Satchmo uses `Paypal's Instant Payment Notification <https://www.paypal.com/ipn>`_ service. The notes below describe how to configure
+it for your setup.
 
 Configuration
 ^^^^^^^^^^^^^
@@ -93,6 +110,32 @@ Configuration
 
    Defaults to `^paypal/`.
 
+Step by Step Instructions for Configuring Paypal IPN
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+The following steps describe how to configure Paypal IPN for production use.
+
+    1.  Make sure that 'payment.modules.paypal' is listed in your INSTALLED_APPS tuple, within your settings.py file.
+
+Then go into your /admin settings and ensure the configuration is correct for yuour site:
+    
+    2. In Site Settings -> Payment Settings, Check "Accept real payments".
+    3. In Site Settings -> Paypal Payment Settings, enter your Merchant Paypal account email 
+    4. In Site Settings -> Paypal Payment Settings verify that POST URL is: https://www.paypal.com/cgi-bin/webscr 
+    5. If you want paypal to adjust your stock levels, make sure your Track inventory levels is checked                       
+
+Now, configure your Paypal Merchant Account through the Paypal website:
+    
+    6. In History select IPN History 
+    7. Select the enable IPN option
+    8. Use the correct Notification URL. For example: http://www.mydomain.com/checkout/paypal/ipn/
+
+Double check your Satchmo sites domain name to make sure it matches the notification url above:
+    9. Go to /admin/sites/site/ and make sure your domain name is the same as the one you configured about in PayPal. In the example above, under Sites put in mydomain.com
+
+There is one note to remember about using paypal with utf-8 characters. By default Paypal will send an IPN call encoded as cp-1252 which 
+will break when the payment module calls PayPal again in utf-8 and there are special characters in the call. The solution is to login to 
+PayPal and change the website encoding of your account on PayPal to utf-8 in your profile settings (bottom right link on the profile page).
+
 .. index:: Google Checkout
 
 Google Checkout
@@ -105,8 +148,15 @@ It is recommended that you review the `Google checkout documentation
 <http://code.google.com/apis/checkout/developer/Google_Checkout_XML_API.html#create_checkout_cart>`_
 in order to understand how the process works.
 
-.. index:: Protx
+.. index:: Protx, Sage Pay
 
-Protx
------
+Sage Pay (Formerly Protx)
+-------------------------
 This processor is included in the default Satchmo store.
+
+.. index:: Sermepa
+
+Sermepa
+-------
+This processor is included in the default Satchmo store. 
+

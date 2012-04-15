@@ -11,7 +11,7 @@ This guide assumes you are working on a unix variant and that you are installing
 you have write access to. In the below example, we use :file:`/home/user/src`. You are expected to modify the path to fit your needs.
 
 .. warning::
-   You must have Django 1.1.x properly installed.
+   You must have Django >= 1.2.3 properly installed.
 
 A Quick Note About Installing Dependencies
 ------------------------------------------
@@ -46,10 +46,11 @@ Installing Dependencies
 
         easy_install pycrypto
         easy_install http://www.satchmoproject.com/snapshots/trml2pdf-1.2.tar.gz
-        easy_install django-registration
         easy_install PyYAML
 
    .. note::
+      If you have the old Python 2.4 installed, you should use also the old version
+      of python-yaml provided by your distribution, not the latest PyYAML from pipy.
       If you have Python 2.4 installed, you will need to install elementtree also::
 
         easy_install elementtree
@@ -83,11 +84,9 @@ Installing Dependencies
 
 #. Install sorl-thumbnail:
 
-   - Check out from source::
-
-       hg clone https://sorl-thumbnail.googlecode.com/hg/ sorl-thumbnail
-       cd /path/to/sorl-thumbnail
-       python setup.py install
+   - Using pip::
+   
+       pip install sorl-thumbnail==3.2.5
 
 #. Install signals-ahoy:
 
@@ -130,7 +129,25 @@ Installing Dependencies
 
      easy_install South
 
+   .. seealso::
+
+      :doc:`migration` for more information on how migrations in Satchmo
+      should be applied.
+
    .. versionadded:: 0.9.1
+
+#. If you use the Fedex shipping module, you will need to install 2 additional modules::
+
+     easy_install fedex
+     easy_install suds
+
+#. Install django-registration:
+
+   - Check out from source::
+
+       hg clone http://bitbucket.org/hynekcer/django-registration/
+       cd /path/to/django-registration
+       python setup.py install
 
 Installing Satchmo into your path
 ---------------------------------
