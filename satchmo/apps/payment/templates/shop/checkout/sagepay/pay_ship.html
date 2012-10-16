@@ -1,5 +1,5 @@
 {% extends "shop/checkout/base_pay_ship.html" %}
-{% load i18n satchmo_util %}
+{% load i18n satchmo_util staticfiles %}
 {# credit card pay_ship version - we just need to collect CC info #}
 
 {% block extra-head %}
@@ -7,7 +7,7 @@
 {% include "shop/_jquery.html" %}
 {% include "shop/_jquery_form.html" %}
 {% blackbird_logging %}
-<script type="text/javascript" src="{{ media_url }}js/satchmo_pay_ship.js"></script>
+<script type="text/javascript" src="{% static "js/satchmo_pay_ship.js" %}"></script>
 <script type="text/javascript"><!--
 $(function() {satchmo.setup_issue_fields({{ form.requires_issue_number|as_json }})});
 -->
